@@ -203,10 +203,97 @@ def insert_text(text: str, position: str = "end", para_index: Optional[int] = No
     return {"inserted": True, "paragraphs_created": para_count, "position": position}
 
 
-def delete_range(start_pos: int, end_pos: int, doc_index: Optional[int] = None) -> Dict:
-    r = get_doc(doc_index).Range(start_pos, end_pos)
+def delete_range(start_pos: int, end_pos: int = None, doc_index: Optional[int] = None) -> Dict:
+    doc = get_doc(doc_index)
+    if end_pos is None or end_pos <= 0:
+        end_pos = doc.Content.End
+    r = doc.Range(start_pos, end_pos)
     r.Delete()
     return {"deleted": True}
+
+
+def _apply_line_format(doc, para_index: int, line: Dict):
+    """Apply font + paragraph formatting to a single paragraph from a line spec."""
+    from .utils import com_set, WDALIGNMENT, WDLINESPACING
+    p = doc.Paragraphs.Item(para_index)
+    r = p.Range
+    f = r.Font
+    pf = p.Format
+
+    com_set(f, "ColorIndex", 1)
+    if "font_name" in line:
+        com_set(f, "Name", line["font_name"])
+        com_set(f, "NameFarEast", line["font_name"])
+    if "font_size" in line:
+        com_set(f, "Size", line["font_size"])
+    if "bold" in line:
+        com_set(f, "Bold", line["bold"])
+    if "italic" in line:
+        com_set(f, "Italic", line["italic"])
+    if "underline" in line:
+        com_set(f, "Underline", line["underline"])
+    if "strike_through" in line:
+        com_set(f, "StrikeThrough", line["strike_through"])
+
+    if "alignment" in line:
+        align_str = line["alignment"]
+        if isinstance(align_str, str):
+            align_val = WDALIGNMENT.get(align_str)
+            if align_val is not None:
+                com_set(pf, "Alignment", align_val)
+    if "space_before" in line:
+        com_set(pf, "SpaceBefore", line["space_before"])
+    if "space_after" in line:
+        com_set(pf, "SpaceAfter", line["space_after"])
+    if "line_spacing_rule" in line:
+        lsr = line["line_spacing_rule"]
+        if isinstance(lsr, str):
+            lsr_val = WDLINESPACING.get(lsr)
+            if lsr_val is not None:
+                com_set(pf, "LineSpacingRule", lsr_val)
+    if "line_spacing" in line:
+        com_set(pf, "LineSpacing", line["line_spacing"])
+    if "first_line_indent" in line:
+        com_set(pf, "FirstLineIndent", line["first_line_indent"])
+    if "left_indent" in line:
+        com_set(pf, "LeftIndent", line["left_indent"])
+    if "right_indent" in line:
+        com_set(pf, "RightIndent", line["right_indent"])
+    if "outline_level" in line:
+        com_set(pf, "OutlineLevel", line["outline_level"])
+
+
+def create_cover(lines: List[Dict], clear_existing: bool = True, doc_index: Optional[int] = None) -> Dict:
+    """Single-call cover page creation. Each line: {text, font_name, font_size, bold, alignment, space_before, space_after, ...}"""
+    doc = get_doc(doc_index)
+
+    if clear_existing and doc.Paragraphs.Count > 0:
+        try:
+            doc.Range(0, doc.Content.End).Delete()
+        except Exception:
+            doc.Range(1, doc.Content.End).Delete()
+
+    created = []
+    rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+
+    for i, line in enumerate(lines):
+        if not isinstance(line, dict):
+            continue
+        text = line.get("text", "")
+        if not text.strip():
+            continue
+
+        if i > 0:
+            rng.InsertParagraphAfter()
+            rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+
+        rng.InsertAfter(text)
+        para_idx = doc.Paragraphs.Count
+        _apply_line_format(doc, para_idx, line)
+        rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+        created.append({"para_index": para_idx, "text": text[:50]})
+
+    return {"created": True, "paragraphs": created, "total": len(created)}
 
 
 def replace_range(start_pos: int, end_pos: int, new_text: str, doc_index: Optional[int] = None) -> Dict:

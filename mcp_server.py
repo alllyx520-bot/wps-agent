@@ -51,17 +51,29 @@ async def list_tools():
              }, "required": ["action"]}),
 
         # --- content ---
-        Tool(name="content", description="Read and write WPS Word document text. Use when user asks to: read/view/show document text, get paragraph content, check selection, see document outline/structure, insert/delete/replace text. IMPORTANT: Use batch action to read multiple items in ONE call (e.g. batch with types paragraph+outline). Actions: full_text/paragraph/paragraphs/selection/range/outline/insert_text/delete_range/replace_range/batch",
+        Tool(name="content", description="Read and write WPS Word document text. Use when user asks to: read/view/show document text, get paragraph content, check selection, see document outline/structure, insert/delete/replace text. IMPORTANT: Use batch action to read multiple items in ONE call (e.g. batch with types paragraph+outline). For cover pages, use create_cover (single call creates and formats all lines). Actions: full_text/paragraph/paragraphs/selection/range/outline/insert_text/delete_range/replace_range/batch/create_cover",
              inputSchema={"type": "object", "properties": {
-                 "action": {"type": "string", "description": "full_text (get entire doc), paragraph (get one by index), paragraphs (get range), selection (current cursor), range (by start/end position), outline (heading structure), insert_text, delete_range, replace_range, batch (read multiple items at once)"},
+                 "action": {"type": "string", "description": "full_text (get entire doc), paragraph (get one by index), paragraphs (get range), selection (current cursor), range (by start/end position), outline (heading structure), insert_text, delete_range, replace_range, batch (read multiple items at once), create_cover (single-call cover page, pass lines array of {text, font_name, font_size, bold, alignment, space_before, space_after...})"},
                  "para_index": {"type": "integer", "description": "Paragraph number (1-based)"},
                  "start": {"type": "integer", "description": "Start paragraph index for paragraphs action"},
                  "count": {"type": "integer", "description": "How many paragraphs to return"},
                  "start_pos": {"type": "integer", "description": "Character start position for range/delete/replace"},
-                 "end_pos": {"type": "integer", "description": "Character end position for range/delete/replace"},
+                 "end_pos": {"type": "integer", "description": "Character end position for range/delete/replace (optional for delete_range, defaults to doc end)"},
                  "text": {"type": "string", "description": "Text to insert"},
                  "new_text": {"type": "string", "description": "Replacement text"},
                  "position": {"type": "string", "description": "Where to insert: end (end of doc), before (before para_index), after (after para_index)"},
+                 "clear_existing": {"type": "boolean", "description": "For create_cover: whether to clear existing content first (default true)"},
+                 "lines": {"type": "array", "items": {"type": "object", "properties": {
+                     "text": {"type": "string", "description": "Line text content"},
+                     "font_name": {"type": "string", "description": "Font: 黑体, 宋体, 微软雅黑, etc."},
+                     "font_size": {"type": "number", "description": "Font size in points (26=一号, 22=二号, 16=三号, 14=四号)"},
+                     "bold": {"type": "boolean"}, "italic": {"type": "boolean"},
+                     "alignment": {"type": "string", "description": "left/center/right/justify"},
+                     "space_before": {"type": "number", "description": "Space before paragraph in points"},
+                     "space_after": {"type": "number", "description": "Space after paragraph in points"},
+                     "line_spacing_rule": {"type": "string", "description": "single/1.5lines/double/exactly/multiple"},
+                     "line_spacing": {"type": "number"}, "first_line_indent": {"type": "number"},
+                 }}, "description": "Array of line specs for create_cover"},
                  "doc_index": {"type": "integer", "description": "Document index (optional, defaults to active)"},
              }, "required": ["action"]}),
 
@@ -326,9 +338,11 @@ async def call_tool(name: str, arguments: dict):
             elif action == "insert_text":
                 result = content.insert_text(arguments["text"], arguments.get("position", "end"), arguments.get("para_index"), doc_index)
             elif action == "delete_range":
-                result = content.delete_range(arguments["start_pos"], arguments["end_pos"], doc_index)
+                result = content.delete_range(arguments["start_pos"], arguments.get("end_pos"), doc_index)
             elif action == "replace_range":
                 result = content.replace_range(arguments["start_pos"], arguments["end_pos"], arguments["new_text"], doc_index)
+            elif action == "create_cover":
+                result = content.create_cover(arguments["lines"], arguments.get("clear_existing", True), doc_index)
             elif action == "batch":
                 result = content.batch(arguments["items"], doc_index)
             else:
