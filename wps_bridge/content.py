@@ -241,10 +241,11 @@ def _apply_line_format(doc, para_index: int, line: Dict):
             align_val = WDALIGNMENT.get(align_str)
             if align_val is not None:
                 com_set(pf, "Alignment", align_val)
-    if "space_before" in line:
-        com_set(pf, "SpaceBefore", line["space_before"])
-    if "space_after" in line:
-        com_set(pf, "SpaceAfter", line["space_after"])
+
+    # Explicitly set spacing to prevent inherited style defaults from adding gaps
+    com_set(pf, "SpaceBefore", line.get("space_before", 0))
+    com_set(pf, "SpaceAfter", line.get("space_after", 0))
+
     if "line_spacing_rule" in line:
         lsr = line["line_spacing_rule"]
         if isinstance(lsr, str):
@@ -263,26 +264,34 @@ def _apply_line_format(doc, para_index: int, line: Dict):
         com_set(pf, "OutlineLevel", line["outline_level"])
 
 
+def _clear_document(doc):
+    """Reliably clear all content. Word/WPS always keeps the final ¶, so Content.Text="" is safe."""
+    try:
+        doc.Content.Text = ""
+    except Exception:
+        # Fallback: delete range except the final paragraph mark
+        end = doc.Content.End
+        if end > 1:
+            doc.Range(0, end - 1).Delete()
+
+
 def create_cover(lines: List[Dict], clear_existing: bool = True, doc_index: Optional[int] = None) -> Dict:
     """Single-call cover page creation. Each line: {text, font_name, font_size, bold, alignment, space_before, space_after, ...}"""
     doc = get_doc(doc_index)
 
-    if clear_existing and doc.Paragraphs.Count > 0:
-        try:
-            doc.Range(0, doc.Content.End).Delete()
-        except Exception:
-            doc.Range(1, doc.Content.End).Delete()
+    if clear_existing:
+        _clear_document(doc)
 
     created = []
-    rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
 
     for i, line in enumerate(lines):
         if not isinstance(line, dict):
             continue
-        text = line.get("text", "")
-        if not text.strip():
+        text = line.get("text", "").strip()
+        if not text:
             continue
 
+        rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
         if i > 0:
             rng.InsertParagraphAfter()
             rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
@@ -290,7 +299,6 @@ def create_cover(lines: List[Dict], clear_existing: bool = True, doc_index: Opti
         rng.InsertAfter(text)
         para_idx = doc.Paragraphs.Count
         _apply_line_format(doc, para_idx, line)
-        rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
         created.append({"para_index": para_idx, "text": text[:50]})
 
     return {"created": True, "paragraphs": created, "total": len(created)}
