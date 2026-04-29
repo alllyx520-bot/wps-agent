@@ -1,0 +1,28 @@
+# WPS Agent Configuration
+# Copy this file to config.yaml and fill in your values
+wps:
+  progid_word: "Kwps.Application"
+  progid_excel: "Ket.Application"
+  progid_ppt: "Kwpp.Application"
+  visible: true
+
+server:
+  name: "wps-agent"
+  log_level: "INFO"
+  log_dir: "logs"
+
+llm:
+  provider: "deepseek"
+  endpoint: "https://api.deepseek.com/v1"
+  model: "deepseek-chat"
+  api_key: ""  # set WPS_AGENT_LLM_KEY environment variable, or put your key here
+  max_tokens: 4096
+  temperature: 0.3
+
+formatting:
+  default_body_font: "宋体"
+  default_heading_font: "黑体"
+  default_font_size: 12
+  default_line_spacing_rule: "multiple"
+  default_line_spacing: 1.5
+  first_line_indent_chars: 2

@@ -1,0 +1,281 @@
+# -*- coding: utf-8 -*-
+"""
+PPT COM bridge for WPS Presentation (Kwpp.Application)
+"""
+import win32com.client
+from typing import Any, Optional, Dict, List
+from .utils import co_init, com_property, com_set, com_set_batch
+
+
+class PPTApplication:
+    _app: Any = None
+    _visible: bool = True
+
+    @classmethod
+    def get_instance(cls, visible: bool = True) -> Any:
+        if cls._app is not None:
+            try:
+                cls._app.Presentations.Count
+                return cls._app
+            except Exception:
+                cls._app = None
+        co_init()
+        cls._visible = visible
+        try:
+            cls._app = win32com.client.GetObject(None, "Kwpp.Application")
+        except Exception:
+            cls._app = win32com.client.Dispatch("Kwpp.Application")
+        com_set(cls._app, "Visible", visible)
+        return cls._app
+
+    @property
+    def app(self) -> Any:
+        return PPTApplication.get_instance(self._visible)
+
+    @property
+    def active_presentation(self) -> Any:
+        try:
+            return self.app.ActivePresentation
+        except Exception:
+            return None
+
+    @property
+    def active_slide(self) -> Any:
+        try:
+            view = self.app.ActiveWindow.View
+            return view.Slide if view else None
+        except Exception:
+            return None
+
+    def list_presentations(self) -> List[Dict]:
+        result = []
+        try:
+            count = self.app.Presentations.Count
+        except Exception:
+            return result
+        for i in range(1, count + 1):
+            try:
+                pres = self.app.Presentations.Item(i)
+                result.append({
+                    "index": i,
+                    "name": com_property(pres, "Name", ""),
+                    "full_name": com_property(pres, "FullName", ""),
+                    "slides": com_property(pres.Slides, "Count", 0),
+                    "saved": com_property(pres, "Saved", False),
+                })
+            except Exception:
+                continue
+        return result
+
+    def quit(self):
+        try:
+            self.app.Quit()
+        except Exception:
+            pass
+        PPTApplication._app = None
+
+
+_ppt = PPTApplication()
+
+
+def pres_create() -> Dict:
+    pres = _ppt.app.Presentations.Add()
+    return {"name": pres.Name, "slides": pres.Slides.Count}
+
+
+def pres_open(filepath: str) -> Dict:
+    pres = _ppt.app.Presentations.Open(filepath)
+    return {"name": pres.Name, "slides": pres.Slides.Count}
+
+
+def pres_list() -> List[Dict]:
+    return _ppt.list_presentations()
+
+
+def pres_save(filepath: Optional[str] = None) -> Dict:
+    pres = _ppt.active_presentation
+    if filepath:
+        pres.SaveAs(filepath)
+    else:
+        pres.Save()
+    return {"name": pres.Name, "saved": True}
+
+
+def pres_close(save_changes: bool = False) -> Dict:
+    pres = _ppt.active_presentation
+    name = pres.Name
+    pres.Close()
+    return {"closed": name}
+
+
+def slide_count() -> int:
+    return _ppt.active_presentation.Slides.Count
+
+
+def slide_info(slide_index: int) -> Dict:
+    pres = _ppt.active_presentation
+    slide = pres.Slides.Item(slide_index)
+    shapes = []
+    for i in range(1, slide.Shapes.Count + 1):
+        try:
+            shp = slide.Shapes.Item(i)
+            shape_info = {
+                "index": i,
+                "type": com_property(shp, "Type", 0),
+                "name": com_property(shp, "Name", ""),
+                "left": com_property(shp, "Left", 0),
+                "top": com_property(shp, "Top", 0),
+                "width": com_property(shp, "Width", 0),
+                "height": com_property(shp, "Height", 0),
+            }
+            if shp.HasTextFrame:
+                shape_info["text"] = com_property(shp.TextFrame.TextRange, "Text", "")[:100]
+            if shp.HasTable:
+                tbl = shp.Table
+                shape_info["table"] = f"{tbl.Rows.Count}x{tbl.Columns.Count}"
+            shapes.append(shape_info)
+        except Exception:
+            continue
+    return {
+        "index": slide_index,
+        "slide_id": com_property(slide, "SlideID", 0),
+        "layout_name": com_property(slide.Layout, "Name", ""),
+        "shapes_count": slide.Shapes.Count,
+        "shapes": shapes,
+        "notes": _get_notes(slide),
+    }
+
+
+def _get_notes(slide) -> str:
+    try:
+        notes_page = slide.NotesPage
+        for i in range(1, notes_page.Shapes.Count + 1):
+            shp = notes_page.Shapes.Item(i)
+            if shp.HasTextFrame:
+                return com_property(shp.TextFrame.TextRange, "Text", "")
+    except Exception:
+        pass
+    return ""
+
+
+def add_slide(layout_index: int = 1) -> Dict:
+    pres = _ppt.active_presentation
+    slide = pres.Slides.Add(pres.Slides.Count + 1, layout_index)
+    return {"slide_index": slide.SlideIndex, "layout": layout_index}
+
+
+def delete_slide(slide_index: int) -> Dict:
+    pres = _ppt.active_presentation
+    pres.Slides.Item(slide_index).Delete()
+    return {"deleted": slide_index}
+
+
+def set_title(slide_index: int, text: str) -> Dict:
+    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    for i in range(1, slide.Shapes.Count + 1):
+        shp = slide.Shapes.Item(i)
+        if shp.HasTextFrame:
+            title_text = com_property(shp.TextFrame.TextRange, "Text", "")
+            if shp.Name.lower().find("title") >= 0 or i <= 2:
+                shp.TextFrame.TextRange.Text = text
+                return {"slide": slide_index, "title": text}
+    # No title placeholder found, add textbox
+    shp = slide.Shapes.AddTextbox(1, 50, 40, 620, 60)
+    shp.TextFrame.TextRange.Text = text
+    shp.TextFrame.TextRange.Font.Size = 28
+    return {"slide": slide_index, "title": text, "added_as_textbox": True}
+
+
+def set_body(slide_index: int, text: str) -> Dict:
+    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    body_shape = None
+    for i in range(1, slide.Shapes.Count + 1):
+        shp = slide.Shapes.Item(i)
+        if shp.HasTextFrame and shp.Name.lower().find("body") >= 0:
+            body_shape = shp
+            break
+    if not body_shape:
+        body_shape = slide.Shapes.AddTextbox(1, 50, 110, 620, 400)
+    body_shape.TextFrame.TextRange.Text = text
+    body_shape.TextFrame.TextRange.Font.Size = 18
+    return {"slide": slide_index, "body_set": True}
+
+
+def add_textbox(slide_index: int, text: str, left: int = 50, top: int = 100,
+                width: int = 620, height: int = 300) -> Dict:
+    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    shp = slide.Shapes.AddTextbox(1, left, top, width, height)
+    shp.TextFrame.TextRange.Text = text
+    return {"slide": slide_index, "shape_index": slide.Shapes.Count, "text": text[:50]}
+
+
+def format_text(slide_index: int, shape_index: int, font_name: Optional[str] = None,
+                font_size: Optional[float] = None, bold: Optional[bool] = None,
+                color: Optional[int] = None) -> Dict:
+    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    shp = slide.Shapes.Item(shape_index)
+    if not shp.HasTextFrame:
+        return {"error": "Shape has no text frame"}
+    tr = shp.TextFrame.TextRange
+    props = {"Name": font_name, "Size": font_size, "Bold": bold, "ColorIndex": color}
+    failed = com_set_batch(tr.Font, props)
+    return {"slide": slide_index, "shape": shape_index, "failed": failed}
+
+
+def insert_image(slide_index: int, image_path: str, left: int = 100, top: int = 100,
+                 width: int = 400, height: int = 300) -> Dict:
+    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    shp = slide.Shapes.AddPicture(image_path, 0, -1, left, top, width, height)
+    return {"slide": slide_index, "shape_index": slide.Shapes.Count, "image": image_path}
+
+
+def insert_table(slide_index: int, rows: int, cols: int, left: int = 50,
+                 top: int = 150, width: int = 600, height: int = 300) -> Dict:
+    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    shp = slide.Shapes.AddTable(rows, cols, left, top, width, height)
+    return {"slide": slide_index, "shape_index": slide.Shapes.Count, "rows": rows, "cols": cols}
+
+
+def fill_cell(slide_index: int, table_index: int, row: int, col: int, text: str) -> Dict:
+    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    shp = slide.Shapes.Item(table_index)
+    if not shp.HasTable:
+        return {"error": "Shape is not a table"}
+    shp.Table.Cell(row, col).Shape.TextFrame.TextRange.Text = text
+    return {"slide": slide_index, "table": table_index, "row": row, "col": col, "text": text}
+
+
+def apply_theme(theme_name: str) -> Dict:
+    pres = _ppt.active_presentation
+    try:
+        pres.ApplyTemplate(theme_name)
+        return {"theme": theme_name}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def add_notes(slide_index: int, text: str) -> Dict:
+    pres = _ppt.active_presentation
+    slide = pres.Slides.Item(slide_index)
+    try:
+        notes_page = slide.NotesPage
+        for i in range(1, notes_page.Shapes.Count + 1):
+            shp = notes_page.Shapes.Item(i)
+            if shp.HasTextFrame:
+                existing = com_property(shp.TextFrame.TextRange, "Text", "")
+                shp.TextFrame.TextRange.Text = existing + "\n" + text if existing else text
+                return {"slide": slide_index, "notes": text}
+    except Exception:
+        pass
+    return {"error": "Could not set notes"}
+
+
+def set_slide_format(slide_index: int, background_color: Optional[int] = None) -> Dict:
+    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    if background_color is not None:
+        try:
+            slide.Background.Fill.ForeColor.RGB = background_color
+            slide.Background.Fill.Visible = True
+        except Exception as e:
+            return {"error": str(e)}
+    return {"slide": slide_index, "background_set": True}
