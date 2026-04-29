@@ -32,10 +32,10 @@ def table_create(rows, cols, position=None, doc_index=None):
     rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1) if position == "end" else get_app().Selection.Range
     tbl = doc.Tables.Add(rng, rows, cols)
     tbl.AutoFitBehavior(2)
-    # Prevent table from stretching full page
+    # Auto-fit table to A4 text area (page width 595.3 - typical margins ~144 = 451)
     try:
         tbl.PreferredWidthType = 2  # wdPreferredWidthPoints
-        tbl.PreferredWidth = 420
+        tbl.PreferredWidth = 451
     except Exception:
         pass
     return {"table_index": doc.Tables.Count, "rows": rows, "columns": cols}

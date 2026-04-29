@@ -119,25 +119,88 @@ def outline(doc_index: Optional[int] = None) -> List[Dict]:
     return result
 
 
+def _insert_at_position(doc, text_lines: List[str], insert_before: bool = False):
+    """Insert multiple paragraphs at a location using reliable paragraph creation."""
+    app = get_app()
+    sel = app.Selection
+    # Remember original cursor
+    try:
+        orig_start = sel.Range.Start
+    except Exception:
+        orig_start = None
+
+    # Filter out empty lines to avoid redundant empty paragraphs
+    lines = [l for l in text_lines if l.strip()]
+    if not lines:
+        return
+
+    # Navigate to correct position
+    # For "before" mode, if we need to insert before a specific paragraph,
+    # we go to that paragraph then go to its start
+    # For "end" mode, we just type at the end
+
+    if insert_before:
+        # Insert before: we type paragraphs backwards? No - we go to start of target,
+        # type, then the existing content moves down. But we need to handle this differently.
+        # Actually for "before", we go to start of paragraph and type.
+        pass
+
+    # Build all text with paragraph breaks, then insert at once
+    # Use the Content range approach which reliably creates separate paragraphs
+    rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+    # Insert paragraph breaks before each line except the first
+    for i, line in enumerate(lines):
+        if i > 0:
+            rng.InsertParagraphAfter()
+            # Move range to after the newly created paragraph
+            rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+        rng.InsertAfter(line)
+
+    # Restore cursor if needed
+    if orig_start is not None:
+        try:
+            sel.SetRange(orig_start, orig_start)
+        except Exception:
+            pass
+
+
 def insert_text(text: str, position: str = "end", para_index: Optional[int] = None, doc_index: Optional[int] = None) -> Dict:
+    """Insert text creating real paragraphs for each newline."""
     doc = get_doc(doc_index)
+    lines = text.split("\n")
+
+    # Determine target range
     if position == "end":
-        # If tables exist, insert BEFORE the first table (content before tables)
         if doc.Tables.Count > 0:
             first_tbl_start = com_property(doc.Tables.Item(1).Range, "Start", 0)
-            r = doc.Range(first_tbl_start - 1, first_tbl_start - 1)
+            rng = doc.Range(first_tbl_start - 1, first_tbl_start - 1)
         else:
-            r = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
-        r.InsertAfter(text)
-        return {"inserted": True, "position": "end"}
-    elif para_index is not None:
-        p = doc.Paragraphs.Item(para_index)
-        if position == "before":
-            p.Range.InsertBefore(text)
-        elif position == "after":
-            p.Range.InsertAfter(text)
-        return {"inserted": True, "position": f"{position} paragraph {para_index}"}
-    return {"inserted": False, "error": "Invalid position"}
+            rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+    elif para_index is not None and position == "before":
+        rng = doc.Paragraphs.Item(para_index).Range.Duplicate
+        rng.Collapse(0)  # Collapse to start
+    elif para_index is not None and position == "after":
+        rng = doc.Paragraphs.Item(para_index).Range.Duplicate
+        rng.Collapse(1)  # Collapse to end
+    else:
+        rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+
+    # Insert each line as a separate paragraph
+    para_count = 0
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped and i == 0:
+            continue  # skip leading blank line
+        if i > 0 or stripped:
+            if para_count > 0 or (i > 0 and stripped):
+                rng.InsertParagraphAfter()
+            if stripped:
+                rng.InsertAfter(stripped)
+                para_count += 1
+            # Advance range past what we just inserted
+            rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+
+    return {"inserted": True, "paragraphs_created": para_count, "position": position}
 
 
 def delete_range(start_pos: int, end_pos: int, doc_index: Optional[int] = None) -> Dict:
