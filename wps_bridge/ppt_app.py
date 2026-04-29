@@ -94,6 +94,8 @@ def pres_list() -> List[Dict]:
 
 def pres_save(filepath: Optional[str] = None) -> Dict:
     pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
     if filepath:
         pres.SaveAs(filepath)
     else:
@@ -103,17 +105,24 @@ def pres_save(filepath: Optional[str] = None) -> Dict:
 
 def pres_close(save_changes: bool = False) -> Dict:
     pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
     name = pres.Name
-    pres.Close()
+    pres.Close(save_changes)
     return {"closed": name}
 
 
 def slide_count() -> int:
-    return _ppt.active_presentation.Slides.Count
+    pres = _ppt.active_presentation
+    if pres is None:
+        return 0
+    return pres.Slides.Count
 
 
 def slide_info(slide_index: int) -> Dict:
     pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
     slide = pres.Slides.Item(slide_index)
     shapes = []
     for i in range(1, slide.Shapes.Count + 1):
@@ -160,26 +169,42 @@ def _get_notes(slide) -> str:
 
 def add_slide(layout_index: int = 1) -> Dict:
     pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
     slide = pres.Slides.Add(pres.Slides.Count + 1, layout_index)
     return {"slide_index": slide.SlideIndex, "layout": layout_index}
 
 
 def delete_slide(slide_index: int) -> Dict:
     pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
     pres.Slides.Item(slide_index).Delete()
     return {"deleted": slide_index}
 
 
 def set_title(slide_index: int, text: str) -> Dict:
-    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
+    slide = pres.Slides.Item(slide_index)
+    # Find title placeholder by type (ppPlaceholderTitle = 1), then fallback to name
     for i in range(1, slide.Shapes.Count + 1):
         shp = slide.Shapes.Item(i)
         if shp.HasTextFrame:
-            title_text = com_property(shp.TextFrame.TextRange, "Text", "")
-            if shp.Name.lower().find("title") >= 0 or i <= 2:
-                shp.TextFrame.TextRange.Text = text
-                return {"slide": slide_index, "title": text}
-    # No title placeholder found, add textbox
+            try:
+                if shp.PlaceholderFormat.Type == 1:
+                    shp.TextFrame.TextRange.Text = text
+                    return {"slide": slide_index, "title": text}
+            except Exception:
+                pass
+    # Fallback: search by name
+    for i in range(1, slide.Shapes.Count + 1):
+        shp = slide.Shapes.Item(i)
+        if shp.HasTextFrame and shp.Name.lower().find("title") >= 0:
+            shp.TextFrame.TextRange.Text = text
+            return {"slide": slide_index, "title": text}
+    # Create textbox as last resort
     shp = slide.Shapes.AddTextbox(1, 50, 40, 620, 60)
     shp.TextFrame.TextRange.Text = text
     shp.TextFrame.TextRange.Font.Size = 28
@@ -187,7 +212,10 @@ def set_title(slide_index: int, text: str) -> Dict:
 
 
 def set_body(slide_index: int, text: str) -> Dict:
-    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
+    slide = pres.Slides.Item(slide_index)
     body_shape = None
     for i in range(1, slide.Shapes.Count + 1):
         shp = slide.Shapes.Item(i)
@@ -203,7 +231,10 @@ def set_body(slide_index: int, text: str) -> Dict:
 
 def add_textbox(slide_index: int, text: str, left: int = 50, top: int = 100,
                 width: int = 620, height: int = 300) -> Dict:
-    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
+    slide = pres.Slides.Item(slide_index)
     shp = slide.Shapes.AddTextbox(1, left, top, width, height)
     shp.TextFrame.TextRange.Text = text
     return {"slide": slide_index, "shape_index": slide.Shapes.Count, "text": text[:50]}
@@ -212,7 +243,10 @@ def add_textbox(slide_index: int, text: str, left: int = 50, top: int = 100,
 def format_text(slide_index: int, shape_index: int, font_name: Optional[str] = None,
                 font_size: Optional[float] = None, bold: Optional[bool] = None,
                 color: Optional[int] = None) -> Dict:
-    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
+    slide = pres.Slides.Item(slide_index)
     shp = slide.Shapes.Item(shape_index)
     if not shp.HasTextFrame:
         return {"error": "Shape has no text frame"}
@@ -224,20 +258,29 @@ def format_text(slide_index: int, shape_index: int, font_name: Optional[str] = N
 
 def insert_image(slide_index: int, image_path: str, left: int = 100, top: int = 100,
                  width: int = 400, height: int = 300) -> Dict:
-    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
+    slide = pres.Slides.Item(slide_index)
     shp = slide.Shapes.AddPicture(image_path, 0, -1, left, top, width, height)
     return {"slide": slide_index, "shape_index": slide.Shapes.Count, "image": image_path}
 
 
 def insert_table(slide_index: int, rows: int, cols: int, left: int = 50,
                  top: int = 150, width: int = 600, height: int = 300) -> Dict:
-    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
+    slide = pres.Slides.Item(slide_index)
     shp = slide.Shapes.AddTable(rows, cols, left, top, width, height)
     return {"slide": slide_index, "shape_index": slide.Shapes.Count, "rows": rows, "cols": cols}
 
 
 def fill_cell(slide_index: int, table_index: int, row: int, col: int, text: str) -> Dict:
-    slide = _ppt.active_presentation.Slides.Item(slide_index)
+    pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
+    slide = pres.Slides.Item(slide_index)
     shp = slide.Shapes.Item(table_index)
     if not shp.HasTable:
         return {"error": "Shape is not a table"}
@@ -247,6 +290,8 @@ def fill_cell(slide_index: int, table_index: int, row: int, col: int, text: str)
 
 def apply_theme(theme_name: str) -> Dict:
     pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
     try:
         pres.ApplyTemplate(theme_name)
         return {"theme": theme_name}
@@ -256,6 +301,8 @@ def apply_theme(theme_name: str) -> Dict:
 
 def add_notes(slide_index: int, text: str) -> Dict:
     pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
     slide = pres.Slides.Item(slide_index)
     try:
         notes_page = slide.NotesPage

@@ -6,7 +6,7 @@ from typing import Any, Dict
 from .app import get_doc as get_word_doc
 from .excel_app import ExcelApplication
 from .docspace import get_word_doc_by_id, get_excel_wb_by_id
-from .utils import com_property, com_set
+from .utils import com_property, com_set, col_letter as _col_letter, parse_cell as _parse_cell
 from .ppt_app import PPTApplication
 
 
@@ -32,14 +32,9 @@ def word_table_to_excel(word_doc_id: str, table_index: int,
         data.append(row_data)
 
     # Calculate target range
-    col_letter = chr(ord('A') + (ord(target_cell[0].upper()) - ord('A') + cols - 1) % 26)
-    if len(target_cell) == 2 and target_cell[1:].isdigit():
-        start_row = int(target_cell[1:])
-    elif len(target_cell) >= 3 and target_cell[1:].isdigit():
-        start_row = int(target_cell[1:])
-    else:
-        start_row = 1
-    end_cell = f"{col_letter}{start_row + rows - 1}"
+    col_letter_target, start_row = _parse_cell(target_cell)
+    end_letter = _col_letter(ord(col_letter_target) - 64 + cols - 1)
+    end_cell = f"{end_letter}{start_row + rows - 1}"
     rng = ws.Range(target_cell, end_cell)
     rng.Value = data
 
@@ -58,13 +53,17 @@ def excel_range_to_word_table(excel_doc_id: str, range_start: str, range_end: st
     if data is None:
         return {"error": "No data in specified range"}
 
-    if not isinstance(data, tuple):
+    if isinstance(data, (int, float, str)):
+        data = ((data,),)
+    elif not isinstance(data, tuple):
         data = ((data,),)
     elif not isinstance(data[0], tuple):
-        data = tuple((v,) for v in data)
+        data = (data,)
 
     rows = len(data)
-    cols = len(data[0])
+    cols = len(data[0]) if rows > 0 else 0
+    if rows == 0 or cols == 0:
+        return {"error": "Range has no data", "rows": rows, "cols": cols}
 
     # Insert position
     if position == "end":
@@ -112,26 +111,46 @@ def word_outline_to_ppt(word_doc_id: str) -> Dict:
         return {"error": "No outline found in source document", "slides_created": 0}
 
     slides_created = 0
-    for item in outlines:
+    current_slide = None
+    # Add title slide first
+    if outlines:
+        title_slide = pres.Slides.Add(1, 1)
+        for i in range(1, title_slide.Shapes.Count + 1):
+            shp = title_slide.Shapes.Item(i)
+            if shp.HasTextFrame and shp.Name.lower().find("title") >= 0:
+                shp.TextFrame.TextRange.Text = outlines[0]["text"]
+                shp.TextFrame.TextRange.Font.Size = 32
+                shp.TextFrame.TextRange.Font.Bold = True
+                shp.TextFrame.TextRange.Font.NameFarEast = "黑体"
+                break
+        slides_created = 1
+        current_slide = title_slide
+
+    for item in outlines[1:] if len(outlines) > 1 else []:
         if item["level"] == 1:
-            # New section → new slide
-            slide = pres.Slides.Add(pres.Slides.Count + 1, 1)
+            slide = pres.Slides.Add(pres.Slides.Count + 1, 2)
             for i in range(1, slide.Shapes.Count + 1):
                 shp = slide.Shapes.Item(i)
                 if shp.HasTextFrame:
-                    shp.TextFrame.TextRange.Text = item["text"]
-                    shp.TextFrame.TextRange.Font.Size = 28
-                    break
+                    if shp.Name.lower().find("title") >= 0:
+                        shp.TextFrame.TextRange.Text = item["text"]
+                        shp.TextFrame.TextRange.Font.Size = 28
+                        shp.TextFrame.TextRange.Font.NameFarEast = "黑体"
+                        shp.TextFrame.TextRange.Font.Bold = True
+                    elif shp.Name.lower().find("body") >= 0 or shp.Name.lower().find("content") >= 0:
+                        shp.TextFrame.TextRange.Text = ""
             slides_created += 1
             current_slide = slide
         elif item["level"] == 2 and current_slide is not None:
-            # Sub-point → add to current slide body
             for i in range(1, current_slide.Shapes.Count + 1):
                 shp = current_slide.Shapes.Item(i)
-                if shp.HasTextFrame and shp.Name.lower().find("body") >= 0:
+                if shp.HasTextFrame and (shp.Name.lower().find("body") >= 0 or shp.Name.lower().find("content") >= 0):
                     existing = com_property(shp.TextFrame.TextRange, "Text", "")
-                    new_text = existing + "\n• " + item["text"] if existing else "• " + item["text"]
+                    bullet = "• " + item["text"]
+                    new_text = existing + "\r" + bullet if existing else bullet
                     shp.TextFrame.TextRange.Text = new_text
+                    shp.TextFrame.TextRange.Font.Size = 18
+                    shp.TextFrame.TextRange.Font.NameFarEast = "宋体"
                     break
 
     return {

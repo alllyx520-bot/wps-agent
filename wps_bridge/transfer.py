@@ -24,22 +24,21 @@ def copy_paragraphs(source_doc_id: str, from_start: int, from_end: int,
     total = src_doc.Paragraphs.Count
     from_start = max(1, from_start)
     from_end = min(from_end, total)
-    copied = 0
-    for i in range(from_start, from_end + 1):
-        try:
-            src_para = src_doc.Paragraphs.Item(i)
-            text = com_property(src_para.Range, "Text", "")
-            if target_position in ("end", "before"):
-                rng = tgt_doc.Range(tgt_doc.Content.End - 1, tgt_doc.Content.End - 1)
-            elif isinstance(target_position, int):
-                rng = tgt_doc.Paragraphs.Item(target_position).Range
-            else:
-                rng = tgt_doc.Range(tgt_doc.Content.End - 1, tgt_doc.Content.End - 1)
-            rng.InsertAfter(text + "\r")
-            copied += 1
-        except Exception:
-            continue
-    return {"action": "copy_paragraphs", "source_range": f"{from_start}-{from_end}", "copied": copied}
+    # Select and copy source range (preserves formatting)
+    src_rng = src_doc.Range(
+        src_doc.Paragraphs.Item(from_start).Range.Start,
+        src_doc.Paragraphs.Item(from_end).Range.End
+    )
+    src_rng.Copy()
+    # Paste at target position
+    if target_position == "end":
+        tgt_rng = tgt_doc.Range(tgt_doc.Content.End - 1, tgt_doc.Content.End - 1)
+    elif isinstance(target_position, int):
+        tgt_rng = tgt_doc.Paragraphs.Item(target_position).Range
+    else:
+        tgt_rng = tgt_doc.Range(tgt_doc.Content.End - 1, tgt_doc.Content.End - 1)
+    tgt_rng.Paste()
+    return {"action": "copy_paragraphs", "source_range": f"{from_start}-{from_end}", "copied": from_end - from_start + 1}
 
 
 def copy_table(source_doc_id: str, table_index: int,

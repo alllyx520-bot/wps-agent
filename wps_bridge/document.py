@@ -50,8 +50,6 @@ def doc_save(doc_index: Optional[int] = None, filepath: Optional[str] = None) ->
 def doc_close(doc_index: Optional[int] = None, save_changes: bool = False) -> Dict:
     doc = get_doc(doc_index)
     name = com_property(doc, "Name", "")
-    if save_changes:
-        doc.Save()
     doc.Close(save_changes)
     return {"closed": name}
 
@@ -182,7 +180,7 @@ def add_watermark(text: str, font_size: float = 72, color: int = 15,
             shp = header.Shapes.AddTextEffect(0, text, "宋体", font_size, 0, 0, 0, 0)
             shp.Fill.Visible = True
             shp.Fill.Solid()
-            shp.Fill.ForeColor.RGB = color
+            shp.Fill.ForeColor.RGB = color if color > 0xFF else (color * 0x10000 + color * 0x100 + color)
             shp.Line.Visible = False
         return {"watermark": text, "added": True}
     except Exception as e:

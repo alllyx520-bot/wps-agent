@@ -16,6 +16,8 @@ def find_text(query, match_case=False, whole_word=False, doc_index=None):
     while find.Execute():
         rng = find.Parent
         results.append({"text": com_property(rng, "Text", "")[:100], "start": com_property(rng, "Start", 0), "end": com_property(rng, "End", 0)})
+        if len(results) > 5000:
+            break
     return results
 
 

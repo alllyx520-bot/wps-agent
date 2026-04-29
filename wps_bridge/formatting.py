@@ -92,6 +92,12 @@ def clear_formatting(para_index=None, use_selection=False, doc_index=None):
 def copy_format(source_para_index, target_para_indices, doc_index=None):
     doc = get_doc(doc_index)
     sel = get_app().Selection
+    # Remember original selection position
+    try:
+        orig_start = sel.Range.Start
+        orig_end = sel.Range.End
+    except Exception:
+        orig_start = orig_end = None
     # Select source paragraph range
     doc.Paragraphs.Item(source_para_index).Range.Select()
     sel.CopyFormat()
@@ -103,6 +109,9 @@ def copy_format(source_para_index, target_para_indices, doc_index=None):
             applied.append(idx)
         except Exception:
             continue
+    # Restore original selection
+    if orig_start is not None:
+        doc.Range(orig_start, orig_end).Select()
     return {"copied_from": source_para_index, "applied_to": applied}
 
 

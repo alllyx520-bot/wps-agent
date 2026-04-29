@@ -76,6 +76,17 @@ def doc_info(doc_id: str) -> Dict:
             "sheets": com_property(wb.Worksheets, "Count", 0),
             "saved": com_property(wb, "Saved", False),
         }
+    elif app_type == "ppt":
+        ppt = PPTApplication()
+        pres = ppt.app.Presentations.Item(index)
+        return {
+            "doc_id": doc_id,
+            "type": "ppt",
+            "name": com_property(pres, "Name", ""),
+            "full_name": com_property(pres, "FullName", ""),
+            "slides": com_property(pres.Slides, "Count", 0),
+            "saved": com_property(pres, "Saved", False),
+        }
     else:
         return {"error": f"Unsupported app type: {app_type}"}
 
@@ -90,6 +101,11 @@ def activate(doc_id: str) -> Dict:
         wb = xl.app.Workbooks.Item(index)
         wb.Activate()
         return {"active": wb.Name, "doc_id": doc_id}
+    elif app_type == "ppt":
+        ppt = PPTApplication()
+        pres = ppt.app.Presentations.Item(index)
+        pres.Activate()
+        return {"active": pres.Name, "doc_id": doc_id}
     else:
         return {"error": f"Unsupported app type: {app_type}"}
 
@@ -125,6 +141,20 @@ def close_all() -> Dict:
                 errors.append(str(e))
     except Exception as e:
         errors.append(str(e))
+    # Close PPT presentations
+    try:
+        ppt = PPTApplication()
+        count = ppt.app.Presentations.Count
+        for i in range(count, 0, -1):
+            try:
+                pres = ppt.app.Presentations.Item(i)
+                name = pres.Name
+                pres.Close()
+                closed.append(f"ppt:{name}")
+            except Exception as e:
+                errors.append(str(e))
+    except Exception as e:
+        errors.append(str(e))
     return {"closed": closed, "errors": errors}
 
 
@@ -155,6 +185,20 @@ def save_all() -> Dict:
                 name = wb.Name
                 wb.Save()
                 saved.append(f"excel:{name}")
+            except Exception as e:
+                errors.append(str(e))
+    except Exception as e:
+        errors.append(str(e))
+    # Save PPT presentations
+    try:
+        ppt = PPTApplication()
+        count = ppt.app.Presentations.Count
+        for i in range(1, count + 1):
+            try:
+                pres = ppt.app.Presentations.Item(i)
+                name = pres.Name
+                pres.Save()
+                saved.append(f"ppt:{name}")
             except Exception as e:
                 errors.append(str(e))
     except Exception as e:

@@ -93,6 +93,10 @@ def alternate_rows(table_index, color1="FFFFFF", color2="F2F2F2", doc_index=None
     tbl = get_doc(doc_index).Tables.Item(table_index)
     for r in range(1, tbl.Rows.Count + 1):
         for c in range(1, tbl.Columns.Count + 1):
-            try: tbl.Cell(r, c).Shading.BackgroundPatternColorIndex = 16 + (int(color2 if r % 2 == 0 else color1, 16) & 0xFF)
-            except: pass
-    return {"table": table_index, "note": "Basic support only"}
+            try:
+                hex_color = color2 if r % 2 == 0 else color1
+                rgb = int(hex_color, 16)
+                tbl.Cell(r, c).Shading.BackgroundPatternColor = rgb
+            except Exception:
+                pass
+    return {"table": table_index, "alternate_rows": True}

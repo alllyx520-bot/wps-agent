@@ -23,6 +23,15 @@ MAX_TOKENS = LLM_CONFIG.get("max_tokens", 4096)
 TEMPERATURE = LLM_CONFIG.get("temperature", 0.3)
 
 
+import re
+
+def _strip_code_fence(text: str) -> str:
+    m = re.search(r'```(?:\w+)?\s*\n?(.*?)\n?```', text, re.DOTALL)
+    if m:
+        return m.group(1).strip()
+    return text.strip()
+
+
 def _get_api_key() -> Optional[str]:
     key = LLM_CONFIG.get("api_key")
     if key:
@@ -126,11 +135,7 @@ Analyze the document structure and formatting, identify inconsistencies, and sug
     if not result:
         return None
     try:
-        result = result.strip()
-        if result.startswith("```"):
-            result = result.split("\n", 1)[1]
-            if result.endswith("```"):
-                result = result.rsplit("```", 1)[0]
+        result = _strip_code_fence(result)
         return json.loads(result)
     except json.JSONDecodeError:
         return {"raw_analysis": result}
@@ -159,11 +164,7 @@ Generate specific formatting actions to improve this document to professional st
     if not result:
         return None
     try:
-        result = result.strip()
-        if result.startswith("```"):
-            result = result.split("\n", 1)[1]
-            if result.endswith("```"):
-                result = result.rsplit("```", 1)[0]
+        result = _strip_code_fence(result)
         return json.loads(result)
     except json.JSONDecodeError:
         return {"raw_suggestions": result}
@@ -213,11 +214,7 @@ Convert the user's natural language instruction into specific formatting operati
     if not result:
         return None
     try:
-        result = result.strip()
-        if result.startswith("```"):
-            result = result.split("\n", 1)[1]
-            if result.endswith("```"):
-                result = result.rsplit("```", 1)[0]
+        result = _strip_code_fence(result)
         return json.loads(result)
     except json.JSONDecodeError:
         return None

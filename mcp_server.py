@@ -16,25 +16,19 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from wps_bridge.app import get_app, get_doc as _bridge_get_doc
 from wps_bridge import document, content, formatting, table, layout, search, review, docspace, transfer, migrate, compare, ppt_app
-from wps_bridge.utils import co_init, co_uninit
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("wps-agent")
 
 PROJECT_DIR = Path(__file__).parent
 CONFIG_PATH = PROJECT_DIR / "config.yaml"
-with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-    CONFIG = yaml.safe_load(f)
+try:
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        CONFIG = yaml.safe_load(f) or {}
+except Exception:
+    CONFIG = {}
 
 server = Server(CONFIG["server"]["name"])
-
-
-def _run_com(func, *args, **kwargs):
-    co_init()
-    try:
-        return func(*args, **kwargs)
-    finally:
-        co_uninit()
 
 
 @server.list_tools()
@@ -304,7 +298,7 @@ async def call_tool(name: str, arguments: dict):
             elif action == "close":
                 result = document.doc_close(doc_index, arguments.get("save_changes", False))
             elif action == "activate":
-                result = document.doc_activate(doc_index or 1)
+                result = document.doc_activate(doc_index if doc_index is not None else 1)
             elif action == "export_pdf":
                 result = document.doc_export_pdf(doc_index, arguments.get("output_path"))
             elif action == "insert_image":
@@ -438,7 +432,7 @@ async def call_tool(name: str, arguments: dict):
 
         elif name == "review":
             if action == "track_changes_toggle":
-                result = review.track_changes_toggle(arguments["enable"], doc_index)
+                result = review.track_changes_toggle(arguments.get("enable", False), doc_index)
             elif action == "track_changes_status":
                 result = review.track_changes_status(doc_index)
             elif action == "comments_list":
@@ -598,12 +592,14 @@ def _ai_apply_template(template_name, doc_index):
         return {"error": f"Template not found: {template_name}", "available": list(CHINESE_FORMATTING.keys())}
     applied = []
     doc = get_doc(doc_index)
+    first_para_done = False
     for level_name, level_rules in tmpl.items():
         if level_name == "page":
             from wps_bridge import layout as lay
             lay.page_setup(doc_index=doc_index, **level_rules)
             applied.append("page_setup")
             continue
+        is_cover = level_rules.pop("is_cover", False)
         outline_level = level_rules.get("outline_level", 10)
         para_count = 0
         for i in range(1, doc.Paragraphs.Count + 1):
@@ -611,10 +607,14 @@ def _ai_apply_template(template_name, doc_index):
                 p = doc.Paragraphs.Item(i)
                 pl = com_property(p.Format, "OutlineLevel", 10)
                 is_body = (level_name == "正文" and pl >= 9 and com_property(p.Range, "Text", "").strip())
-                is_heading = (pl == outline_level and outline_level <= 9)
-                if is_heading or is_body:
+                is_heading = (pl == outline_level and 1 <= outline_level <= 9)
+                should_apply = is_heading or is_body
+                if is_cover and not first_para_done:
+                    should_apply = (i == 1)
+                    first_para_done = True
+                if should_apply:
                     r = p.Range
-                    com_set(r.Font, "ColorIndex", 1)  # force black text
+                    com_set(r.Font, "ColorIndex", 1)
                     if "font_name" in level_rules:
                         com_set(r.Font, "Name", level_rules["font_name"])
                     if "font_name_fallback" in level_rules and not com_set(r.Font, "Name", level_rules["font_name"]):
@@ -625,8 +625,13 @@ def _ai_apply_template(template_name, doc_index):
                         com_set(r.Font, "Bold", level_rules["bold"])
                     if "alignment" in level_rules:
                         com_set(r.ParagraphFormat, "Alignment", WDALIGNMENT.get(level_rules["alignment"], 3))
-                    if "first_line_indent" in level_rules:
-                        com_set(r.ParagraphFormat, "FirstLineIndent", level_rules["first_line_indent"] * 14)
+                    if "first_line_indent_chars" in level_rules:
+                        indent = level_rules["first_line_indent_chars"] * level_rules.get("font_size", 14)
+                        com_set(r.ParagraphFormat, "FirstLineIndent", indent)
+                    elif "first_line_indent_pt" in level_rules:
+                        com_set(r.ParagraphFormat, "FirstLineIndent", level_rules["first_line_indent_pt"])
+                    elif "first_line_indent" in level_rules:
+                        com_set(r.ParagraphFormat, "FirstLineIndent", level_rules["first_line_indent"])
                     if "line_spacing_rule" in level_rules:
                         com_set(r.ParagraphFormat, "LineSpacingRule", WDLINESPACING.get(level_rules["line_spacing_rule"], 0))
                     if "line_spacing" in level_rules:
@@ -638,6 +643,7 @@ def _ai_apply_template(template_name, doc_index):
                     para_count += 1
             except Exception:
                 continue
+        level_rules["is_cover"] = is_cover
         if para_count > 0:
             applied.append(f"{level_name}({para_count}段)")
     return {"template": template_name, "applied_to": applied}
@@ -686,7 +692,7 @@ def _ai_reformat(instructions, doc_index):
                         res = {"error": f"Unknown content action: {act_args.get('action')}"}
                 else:
                     res = {"error": f"Unknown tool: {tool_name}"}
-                if "error" in str(res):
+                if isinstance(res, dict) and "error" in res:
                     failed.append({"action": act, "error": str(res.get("error", res))[:200]})
                 else:
                     executed.append(act.get("reason", str(act)[:80]))
@@ -712,7 +718,7 @@ Available tools: format(set_font/set_paragraph_format/apply_style/batch), layout
 
 Output ONLY a JSON array of corrected tool calls. If a failure is unrecoverable, omit it."""
 
-        healed = chat(heal_prompt, "Output corrected JSON arrays only, no extra text.")
+        healed = chat("You are a WPS COM API expert. Output corrected JSON arrays only, no extra text.", heal_prompt)
         if not healed:
             break
         try:
@@ -754,15 +760,19 @@ def _ai_auto_toc(doc_index):
                     f = p.Range.Font
                     com_set(f, "ColorIndex", 1)
                     com_set(f, "NameFarEast", "宋体")
-                    com_set(p.Range.ParagraphFormat, "LineSpacingRule", 4)  # exactly
-                    com_set(p.Range.ParagraphFormat, "LineSpacing", 22)
-                    if "TOC 1" in style_name or "1" in style_name[-2:]:
+                    com_set(p.Range.ParagraphFormat, "LineSpacingRule", 4)
+                    if "TOC 1" in style_name:
                         com_set(f, "NameFarEast", "黑体")
                         com_set(f, "Size", 14)
+                        com_set(p.Range.ParagraphFormat, "LineSpacing", 26)
                     elif "TOC 2" in style_name:
                         com_set(f, "Size", 12)
+                        com_set(p.Range.ParagraphFormat, "LineSpacing", 22)
                     elif "TOC 3" in style_name:
                         com_set(f, "Size", 10.5)
+                        com_set(p.Range.ParagraphFormat, "LineSpacing", 20)
+                    else:
+                        com_set(p.Range.ParagraphFormat, "LineSpacing", 22)
                     com_set(f, "Bold", False)
                     formatted += 1
             except Exception:
@@ -783,13 +793,16 @@ def _ai_auto_numbering(doc_index):
             p = doc.Paragraphs.Item(i)
             level = com_property(p.Format, "OutlineLevel", 10)
             if 1 <= level <= 5:
-                for l in range(level, 6):
+                for l in range(level + 1, 6):
                     counters[l] = 0
                 counters[level] = counters.get(level, 0) + 1
                 num_parts = [str(counters[l]) for l in range(1, level + 1)]
                 prefix = ".".join(num_parts) + " "
                 text = com_property(p.Range, "Text", "").strip()
-                if text and not text[0].isdigit():
+                # Skip if heading already has a number prefix (CJK or Arabic)
+                import re
+                already_numbered = re.match(r'^(\d+(\.\d+)*\s)|(第[一二三四五六七八九十百千]+章)|([一二三四五六七八九十]+、)', text)
+                if text and not already_numbered:
                     p.Range.Text = prefix + text
                     numbered += 1
         except Exception:

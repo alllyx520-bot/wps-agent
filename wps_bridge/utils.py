@@ -109,3 +109,19 @@ WDGOTO = {
     "line": 1, "page": 0, "section": 2, "bookmark": -1,
     "heading": 11,
 }
+
+
+def col_letter(n: int) -> str:
+    s = ""
+    while n > 0:
+        n, r = divmod(n - 1, 26)
+        s = chr(65 + r) + s
+    return s
+
+
+def parse_cell(cell_ref: str):
+    import re
+    m = re.match(r'([A-Za-z]+)(\d+)', cell_ref)
+    if not m:
+        raise ValueError(f"Invalid cell reference: {cell_ref}")
+    return m.group(1).upper(), int(m.group(2))
