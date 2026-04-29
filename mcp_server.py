@@ -220,9 +220,9 @@ async def list_tools():
              }, "required": ["action", "doc_id_a", "doc_id_b"]}),
 
         # --- ai_format ---
-        Tool(name="ai_format", description="AI-powered intelligent formatting for WPS Word. Use when user asks to: analyze document formatting, suggest improvements, apply professional templates (论文/thesis, 公文/official, 报告/report, 简历/resume), auto-apply formatting from natural language ('把标题改成黑体三号居中'), generate table of contents, add multi-level heading numbers, validate formatting quality, generate/summarize/rewrite/expand/translate content. This is the most powerful tool - it uses AI (LLM) to understand document structure and apply professional formatting automatically. Actions: analyze/suggest/apply_template/reformat/auto_toc/auto_numbering/validate/generate_content/summarize_document/rewrite_paragraph/expand_section/translate_section",
+        Tool(name="ai_format", description="AI-powered intelligent formatting for WPS Word. Use when user asks to: analyze document formatting, suggest improvements, apply professional templates, auto-apply formatting from natural language, generate table of contents, add multi-level heading numbers, validate formatting quality, generate/summarize/rewrite/expand/translate content, or run quality supervision to auto-fix layout issues. Actions: analyze/suggest/apply_template/reformat/auto_toc/auto_numbering/validate/generate_content/summarize_document/rewrite_paragraph/expand_section/translate_section/supervise",
              inputSchema={"type": "object", "properties": {
-                 "action": {"type": "string", "description": "analyze/suggest/apply_template/reformat/auto_toc/auto_numbering/validate/generate_content (AI write text)/summarize_document (AI summary)/rewrite_paragraph (AI polish)/expand_section (AI expand)/translate_section (AI translate)"},
+                 "action": {"type": "string", "description": "analyze/suggest/apply_template/reformat/auto_toc/auto_numbering/validate/generate_content/summarize_document/rewrite_paragraph/expand_section/translate_section/supervise (auto-fix layout/cover/table issues)"},
                  "template_name": {"type": "string", "description": "official/thesis/report/resume/custom"},
                  "instructions": {"type": "string", "description": "Natural language formatting instructions for reformat"},
                  "doc_index": {"type": "integer"},
@@ -534,6 +534,8 @@ async def call_tool(name: str, arguments: dict):
                 result = _ai_expand(arguments["para_index"], doc_index)
             elif action == "translate_section":
                 result = _ai_translate(arguments["para_index"], arguments.get("target_lang", "en"), doc_index)
+            elif action == "supervise":
+                result = _ai_supervise(doc_index)
             else:
                 result = {"error": f"Unknown ai_format action: {action}"}
 
@@ -739,7 +741,16 @@ Output ONLY a JSON array of corrected tool calls. If a failure is unrecoverable,
         "failed": len(failed),
         "details": executed[:20],
         "failures": failed[:5],
+        "quality_check": _run_supervisor(doc_index),
     }
+
+
+def _run_supervisor(doc_index):
+    try:
+        from intelligence.quality_supervisor import evaluate
+        return evaluate(doc_index)
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def _ai_auto_toc(doc_index):
@@ -831,7 +842,14 @@ def _ai_validate(doc_index):
 
 def _ai_generate_content(instructions, position, para_index, doc_index):
     from intelligence.content_generator import generate_content
-    return generate_content(instructions, position, para_index, doc_index)
+    result = generate_content(instructions, position, para_index, doc_index)
+    # Auto-supervise after content generation
+    if "error" not in str(result):
+        try:
+            result["quality_check"] = _run_supervisor(doc_index)
+        except Exception:
+            pass
+    return result
 
 
 def _ai_summarize(doc_index):
@@ -852,6 +870,12 @@ def _ai_expand(para_index, doc_index):
 def _ai_translate(para_index, target_lang, doc_index):
     from intelligence.content_generator import translate_section
     return translate_section(para_index, target_lang, doc_index)
+
+
+def _ai_supervise(doc_index):
+    """Run quality supervisor: evaluate document and auto-fix layout issues."""
+    from intelligence.quality_supervisor import sanitize_and_fix
+    return sanitize_and_fix(doc_index)
 
 
 def _handle_excel(action: str, args: dict):

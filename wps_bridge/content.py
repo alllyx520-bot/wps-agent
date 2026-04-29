@@ -122,7 +122,12 @@ def outline(doc_index: Optional[int] = None) -> List[Dict]:
 def insert_text(text: str, position: str = "end", para_index: Optional[int] = None, doc_index: Optional[int] = None) -> Dict:
     doc = get_doc(doc_index)
     if position == "end":
-        r = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+        # If tables exist, insert BEFORE the first table (content before tables)
+        if doc.Tables.Count > 0:
+            first_tbl_start = com_property(doc.Tables.Item(1).Range, "Start", 0)
+            r = doc.Range(first_tbl_start - 1, first_tbl_start - 1)
+        else:
+            r = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
         r.InsertAfter(text)
         return {"inserted": True, "position": "end"}
     elif para_index is not None:

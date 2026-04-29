@@ -30,7 +30,14 @@ def table_read(table_index, doc_index=None):
 def table_create(rows, cols, position=None, doc_index=None):
     doc = get_doc(doc_index)
     rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1) if position == "end" else get_app().Selection.Range
-    doc.Tables.Add(rng, rows, cols).AutoFitBehavior(2)
+    tbl = doc.Tables.Add(rng, rows, cols)
+    tbl.AutoFitBehavior(2)
+    # Prevent table from stretching full page
+    try:
+        tbl.PreferredWidthType = 2  # wdPreferredWidthPoints
+        tbl.PreferredWidth = 420
+    except Exception:
+        pass
     return {"table_index": doc.Tables.Count, "rows": rows, "columns": cols}
 
 def table_delete(table_index, doc_index=None):
