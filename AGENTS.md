@@ -98,6 +98,8 @@ failed = com_set_batch(obj, {"Prop1": val1, "Prop2": val2})
 | 多次 `insert_text` 逐段创建 | 文本合并到一个段落，格式设置失效 | `content action=create_cover lines=[...]` |
 | 用 `delete_range` 清空文档时只传 `start_pos` | 不传 `end_pos`（或传 0）范围无效，段落标记残留 | 用 `create_cover` 的 `clear_existing: true` |
 | 依赖 `format batch` 设置封面格式 | 参数格式容易出错 | `create_cover` 内置逐段格式化 |
+| 不清除继承的段落间距 | WPS Normal 样式自带段前/段后间距，未显式设置时文本间距失控 | `_apply_line_format` 强制 `SpaceBefore=0, SpaceAfter=0`（line 指定值时覆盖） |
+| `doc.Range(0, Content.End).Delete()` 清空 | Word/WPS 拒绝删除末尾段落标记，抛出异常后 fallback 可能残留内容导致多页 | `doc.Content.Text = ""` 可靠清空
 
 ### 标准封面调用
 
