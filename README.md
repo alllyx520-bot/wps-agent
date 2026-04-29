@@ -1,252 +1,200 @@
 # WPS Agent
 
-> An MCP server that turns WPS Office into an AI-powered document assistant. 18 tools, 130+ actions, covering Word/Excel/PPT via COM automation.
+> 把 WPS Office 变成 AI 驱动的文档助手。基于 MCP 协议，通过 COM 自动化控制 Word/Excel/PPT，支持 LLM 智能排版与内容生成。
 
-## Features
+## 功能概览
 
-- **Word**: full document CRUD, paragraph/range text operations, outline, styles, tables, search/replace, layout, track changes, comments, footnotes, bookmarks, fields, watermarks, images, document properties
-- **Excel**: workbook/sheet CRUD, cell/range read/write, formatting, charts, sort, filter, conditional format, formulas, freeze panes
-- **PPT**: presentation CRUD, slide management, text/shape/table/image operations, speaker notes
-- **Cross-document**: copy paragraphs/tables/ranges between Word docs, Word↔Excel data migration, Word outline→PPT generation, document text/format diff
-- **AI formatting**: analyze document structure, suggest improvements, apply 12 built-in Chinese templates (official/thesis/report/resume/contract/letter/proposal/meeting_minutes/press_release/manual/exam/bid), natural language reformatting, auto TOC, auto heading numbering, error self-healing
-- **AI content**: generate/summarize/rewrite/expand/translate document content via LLM
-- **Template system**: extract formatting from documents, save/load/export/import templates, compare documents against templates
+- **Word**：文档增删改查、段落/选区/大纲操作、样式管理、表格、搜索替换、页面布局、修订/批注、脚注/书签/域代码、水印、图片、文档属性
+- **Excel**：工作簿/工作表 CRUD、单元格/区域读写、格式化、图表、排序、筛选、条件格式、公式、冻结窗格
+- **PPT**：演示文稿 CRUD、幻灯片管理、文本框/表格/图片操作、演讲者备注
+- **跨文档**：文档间复制段落/表格/文本、Word↔Excel 数据迁移、Word 大纲→PPT 生成、文档文本/格式对比
+- **AI 排版**：分析文档结构、提改进建议、应用 12 套中文预设模板（公文/论文/报告/简历/合同/公函/项目建议书/会议纪要/新闻稿/手册/试卷/标书）、自然语言排版的、自动目录/标题编号、错误自愈
+- **AI 内容**：通过 LLM 生成/总结/改写/扩写/翻译文档内容
+- **模板系统**：提取文档格式、保存/加载/导出/导入模板、文档与模板对比
 
-## Architecture
+## 架构
 
 ```
-opencode (AI Agent)
+opencode (AI Agent)          ← 你说人话，它调工具
     ↕ MCP stdio
-mcp_server.py (18 tools)
+mcp_server.py (18 个工具)    ← MCP 协议层
     ↕ Python import
-wps_bridge/          intelligence/
-├── app.py           ├── chinese_rules.py (12 presets)
-├── document.py      ├── content_generator.py (5 AI write ops)
-├── content.py       ├── format_suggester.py
-├── formatting.py    ├── layout_analyzer.py
-├── table.py         ├── llm_client.py
-├── layout.py        └── template_manager.py
-├── search.py
-├── review.py        COM (pywin32)
-├── docspace.py          ↕
-├── transfer.py      WPS Office (Windows)
-├── migrate.py       ├── Kwps.Application (Word)
-├── compare.py       ├── Ket.Application (Excel)
-├── excel_app.py     └── Kwpp.Application (PPT)
-├── ppt_app.py
-└── utils.py
+wps_bridge/                  ← COM 自动化层
+├── app.py                   # Word COM 单例
+├── document.py / content.py / formatting.py / table.py
+├── layout.py / search.py / review.py
+├── docspace.py / transfer.py / migrate.py / compare.py
+├── excel_app.py / ppt_app.py / utils.py
+intelligence/                ← AI 智能层
+├── chinese_rules.py         # 12 套预设模板
+├── content_generator.py     # AI 内容生成
+├── llm_client.py            # LLM API 客户端
+├── template_manager.py      # 模板提取管理
+└── layout_analyzer.py       # 文档分析
+    ↕ COM (pywin32)
+WPS Office (Windows)
+├── Kwps.Application (Word)
+├── Ket.Application (Excel)
+└── Kwpp.Application (PPT)
 ```
 
-## Prerequisites
+## 环境要求
 
-- **Windows** with WPS Office installed (COM automation only works on Windows)
+- **Windows** + WPS Office（COM 自动化仅支持 Windows）
 - **Python 3.11+**
-- **Conda** (recommended for environment isolation)
+- **Conda**（推荐）
 
-## Installation
+## 安装
 
 ```bash
-# 1. Clone
-git clone https://github.com/YOUR_USERNAME/wps-agent.git
+# 1. 克隆
+git clone https://github.com/alllyx520-bot/wps-agent.git
 cd wps-agent
 
-# 2. Create conda environment
+# 2. 创建虚拟环境
 conda create -n wps-agent python=3.11 -y
 conda activate wps-agent
 
-# 3. Install dependencies
+# 3. 安装依赖
 pip install -r requirements.txt
 
-# 4. Configure
-copy config.yaml.example config.yaml
-# Edit config.yaml and set your LLM API key (or use WPS_AGENT_LLM_KEY env var)
+# 4. 配置 LLM API Key（三选一）
+# 方式一：环境变量
+set WPS_AGENT_LLM_KEY=sk-xxx
+# 方式二：编辑 config.yaml 的 llm.api_key 字段
+# 方式三：在 MCP 客户端配置中注入（见下方）
 ```
 
-## Configuration
+## MCP 客户端配置
 
-**LLM API Key** (choose one):
-
-| Method | How |
-|--------|-----|
-| Environment variable | Set `WPS_AGENT_LLM_KEY=sk-xxx` |
-| config.yaml | Add `api_key: "sk-xxx"` in the `llm:` section |
-| MCP environment | Pass via MCP client config (see below) |
-
-**config.yaml**:
-```yaml
-llm:
-  provider: "deepseek"
-  endpoint: "https://api.deepseek.com/v1"
-  model: "deepseek-chat"
-  api_key: ""  # or set WPS_AGENT_LLM_KEY env var
-```
-
-Supports any OpenAI-compatible endpoint (DeepSeek, Aliyun DashScope, OpenAI, etc.).
-
-## MCP Setup (opencode / Claude Desktop)
-
-Add to `opencode.jsonc` or `claude_desktop_config.json`:
+在 `opencode.jsonc` 或 `claude_desktop_config.json` 中添加：
 
 ```json
 {
   "mcp": {
     "wps-agent": {
       "type": "local",
-      "command": ["C:\\path\\to\\python.exe", "C:\\path\\to\\wps-agent\\mcp_server.py"],
+      "command": ["python路径", "wps-agent安装路径\\mcp_server.py"],
       "environment": {
-        "WPS_AGENT_LLM_KEY": "your-api-key-here"
+        "WPS_AGENT_LLM_KEY": "你的API-Key"
       }
     }
   }
 }
 ```
 
-Restart your MCP client. WPS Office must be running.
+重启 MCP 客户端。确保 WPS Office 已启动。
 
-## Tool Reference
+## 工具速查表
 
-### Word Tools
+### Word 工具
 
-| Tool | Action | Description |
-|------|--------|-------------|
-| `document` | info/list/open/create/save/close/activate/export_pdf/insert_image/doc_properties/set_doc_properties | Document lifecycle, metadata, images |
-| `content` | full_text/paragraph/paragraphs/selection/range/outline/insert_text/delete_range/replace_range/batch | Read/write document text |
-| `format` | get_font/set_font/get_paragraph_format/set_paragraph_format/apply_style/clear_formatting/copy_format/batch/add_watermark/remove_watermark | Font & paragraph formatting |
-| `style` | list/get/create/modify | Style management (标题 1, 正文, etc.) |
-| `table` | count/info/read/create/delete/set_cell_text/format_cell/set_header/format_borders/merge_cells/auto_fit/set_column_width/alternate_rows/batch_read | Table operations |
-| `search` | find/replace/find_format/goto_heading | Search & replace |
-| `layout` | page_setup/section_info/add_section_break/columns/header_footer/page_numbers | Page layout, headers, page numbers |
-| `review` | track_changes_toggle/track_changes_status/comments_list/comment_add/revisions_list/revisions_accept_all/revisions_reject_all | Track changes & comments |
-| `reference` | add_footnote/add_endnote/list_footnotes/add_bookmark/goto_bookmark/list_bookmarks/insert_field | Footnotes, bookmarks, fields |
+| 工具 | 常用操作 |
+|------|---------|
+| `document` | info / list / open / create / save / close / export_pdf / insert_image / doc_properties / set_doc_properties |
+| `content` | full_text / paragraph / paragraphs / outline / insert_text / batch |
+| `format` | get_font / set_font / get_paragraph_format / set_paragraph_format / apply_style / copy_format / batch / add_watermark / remove_watermark |
+| `style` | list / get / create / modify |
+| `table` | count / info / read / create / set_cell_text / format_cell / set_header / format_borders / merge_cells / batch_read |
+| `search` | find / replace / find_format / goto_heading |
+| `layout` | page_setup / section_info / add_section_break / columns / header_footer / page_numbers |
+| `review` | track_changes_toggle / comments_list / comment_add / revisions_accept_all |
+| `reference` | add_footnote / add_endnote / add_bookmark / goto_bookmark / list_bookmarks / insert_field |
 
-### Cross-Application Tools
+### 跨应用工具
 
-| Tool | Action | Description |
-|------|--------|-------------|
-| `docspace` | list_all/activate/close_all/save_all | Unified document management across Word/Excel/PPT |
-| `transfer` | copy_paragraphs/copy_table/copy_range | Copy content between Word documents |
-| `migrate` | word_table_to_excel/excel_range_to_word_table/word_outline_to_ppt | Data migration between applications |
-| `compare` | text_diff/format_diff | Document comparison |
+| 工具 | 常用操作 |
+|------|---------|
+| `docspace` | list_all（查看所有打开的文档） / activate / close_all / save_all |
+| `transfer` | copy_paragraphs / copy_table / copy_range（文档间复制） |
+| `migrate` | word_table_to_excel / excel_range_to_word_table / word_outline_to_ppt |
+| `compare` | text_diff / format_diff（文档对比） |
 
-### Excel Tool
+### Excel / PPT 工具
 
-| Tool | Action | Description |
-|------|--------|-------------|
-| `excel` | create/open/list/save/close/sheet_list/sheet_activate/sheet_add/sheet_copy/sheet_delete/sheet_move/cell_read/cell_write/range_read/range_write/font_set/interior_set/borders_set/column_width/auto_fit/merge_cells/formula_set/chart_add/chart_set_source/chart_set_title/sort/auto_filter/remove_filter/conditional_format/freeze_panes/get_used_range | Full Excel automation |
+| 工具 | 常用操作 |
+|------|---------|
+| `excel` | create / open / cell_read / cell_write / range_write / formula_set / chart_add / sort / auto_filter / conditional_format / freeze_panes |
+| `presentation` | create / add_slide / set_title / set_body / insert_image / insert_table / add_notes |
 
-### PPT Tool
+### AI 工具
 
-| Tool | Action | Description |
-|------|--------|-------------|
-| `presentation` | create/open/list/save/close/slide_count/slide_info/add_slide/delete_slide/set_title/set_body/add_textbox/format_text/insert_image/insert_table/fill_cell/apply_theme/add_notes | Full PowerPoint automation |
+| 工具 | 常用操作 |
+|------|---------|
+| `template` | extract（提取当前文档格式）/ list（12套预设）/ save / load / compare |
+| `ai_format` | analyze / apply_template / reformat / auto_toc / auto_numbering / generate_content / summarize_document / rewrite_paragraph / translate_section |
 
-### AI Tools
-
-| Tool | Action | Description |
-|------|--------|-------------|
-| `template` | extract/save/load/list/delete/export/import/compare | Template management (12 built-in presets) |
-| `ai_format` | analyze/suggest/apply_template/reformat/auto_toc/auto_numbering/validate/generate_content/summarize_document/rewrite_paragraph/expand_section/translate_section | AI-powered formatting & content generation |
-
-## Usage Examples
-
-### Natural Language Commands (via opencode)
+## 使用示例
 
 ```
 "把第一段改成黑体三号加粗居中"
 "用学术论文模板格式化当前文档"
-"自动生成目录和标题编号"
-"在A1到D5写入销售数据并画柱状图"
-"根据文档大纲生成一份10页的演示文稿"
-"总结全文内容"
+"自动生成目录"
 "把A文档的第3-5段复制到B文档末尾"
-"对比这两个文档的排版差异"
+"根据文档大纲生成PPT"
+"总结全文"
+"把这段翻译成英文"
 ```
 
-### Batch Operations
+## 内置模板
 
-```json
-// format.batch — modify multiple paragraphs in one call
-{"action": "batch", "operations": [
-  {"type": "set_font", "para_index": 1, "name": "黑体", "size": 16, "bold": true},
-  {"type": "set_font", "para_index": 5, "name": "黑体", "size": 16, "bold": true}
-]}
+| 模板名 | 适用场景 |
+|--------|---------|
+| `official` | 党政公文 (GB/T 9704) |
+| `thesis` | 学术论文 |
+| `report` | 商业报告 |
+| `resume` | 简历 |
+| `contract` | 合同/协议 |
+| `letter` | 公函/商务信函 |
+| `proposal` | 项目建议书 |
+| `meeting_minutes` | 会议纪要 |
+| `press_release` | 新闻稿 |
+| `manual` | 用户手册 |
+| `exam` | 试卷 |
+| `bid` | 标书 |
 
-// content.batch — read multiple items in one call
-{"action": "batch", "items": [
-  {"type": "paragraph", "para_index": 1},
-  {"type": "outline"}
-]}
-```
-
-### AI Content Generation
-
-```
-"在第3章之后写一段关于技术风险的补充说明"
-"把这段内容翻译成英文"
-"润色第5段"
-"扩展第2章，补充更多细节"
-```
-
-## Built-in Templates
-
-| Template | For |
-|----------|-----|
-| `official` | Government documents (GB/T 9704) |
-| `thesis` | Academic papers |
-| `report` | Business reports |
-| `resume` | Resumes/CVs |
-| `contract` | Contracts/agreements |
-| `letter` | Official letters |
-| `proposal` | Project proposals |
-| `meeting_minutes` | Meeting minutes |
-| `press_release` | Press releases |
-| `manual` | User manuals |
-| `exam` | Exam papers |
-| `bid` | Bid documents |
-
-## Project Structure
+## 项目结构
 
 ```
 wps-agent/
-├── mcp_server.py          # MCP server entry point (18 tools)
-├── config.yaml.example    # Configuration template
-├── requirements.txt       # Python dependencies
+├── mcp_server.py          # MCP 服务入口（18 个工具）
+├── config.yaml            # 配置文件
+├── requirements.txt       # Python 依赖
 ├── README.md
 ├── .gitignore
-├── wps_bridge/            # COM automation layer
-│   ├── app.py             # Word COM singleton
-│   ├── document.py        # Document CRUD + advanced features
-│   ├── content.py         # Text read/write
-│   ├── formatting.py      # Font & paragraph formatting
-│   ├── table.py           # Table operations
-│   ├── layout.py          # Page layout
-│   ├── search.py          # Find & replace
-│   ├── review.py          # Track changes & comments
-│   ├── docspace.py        # Unified document space
-│   ├── transfer.py        # Cross-document copy
-│   ├── migrate.py         # Word↔Excel migration
-│   ├── compare.py         # Document diff
-│   ├── excel_app.py       # Excel COM automation
-│   ├── ppt_app.py         # PPT COM automation
-│   └── utils.py           # COM helpers
-├── intelligence/          # AI & template layer
-│   ├── llm_client.py      # LLM API client
-│   ├── chinese_rules.py   # 12 built-in templates
-│   ├── template_manager.py # Template extract/save/load
-│   ├── content_generator.py # AI content generation
-│   ├── format_suggester.py # Format suggestion
-│   └── layout_analyzer.py # Document analysis
-└── logs/                  # Test & debug files
+├── wps_bridge/            # COM 自动化桥接层
+│   ├── app.py             # Word COM 单例（含断连重连）
+│   ├── document.py        # 文档 CRUD + 图片/书签/水印等
+│   ├── content.py         # 文本读写 + 批量操作
+│   ├── formatting.py      # 字体/段落格式 + 格式刷 + 批量
+│   ├── table.py           # 表格全功能
+│   ├── layout.py          # 页面设置/页眉页脚/页码
+│   ├── search.py          # 查找替换
+│   ├── review.py          # 修订/批注
+│   ├── docspace.py        # 统一文档空间
+│   ├── transfer.py        # 跨文档复制
+│   ├── migrate.py         # Word↔Excel 迁移 + Word→PPT
+│   ├── compare.py         # 文档对比
+│   ├── excel_app.py       # Excel 全功能 COM 桥接
+│   ├── ppt_app.py         # PPT COM 桥接
+│   └── utils.py           # COM 辅助函数
+└── intelligence/          # AI 智能层
+    ├── llm_client.py      # LLM API 客户端（支持 DeepSeek/OpenAI）
+    ├── chinese_rules.py   # 12 套中文排版预设
+    ├── template_manager.py # 模板提取/保存/加载/对比
+    ├── content_generator.py # AI 生成/总结/改写/扩写/翻译
+    ├── format_suggester.py # 格式建议
+    └── layout_analyzer.py # 文档分析 + 自然语言解析
 ```
 
-## Technical Notes
+## 技术说明
 
-- WPS COM ProgIDs: `Kwps.Application` (Word), `Ket.Application` (Excel), `Kwpp.Application` (PPT)
-- COM connection persists across MCP calls with automatic reconnection on failure
-- Style names use Chinese in WPS (标题 1, 正文) — not English (Heading 1)
-- Supports DeepSeek, OpenAI, and any OpenAI-compatible LLM API
-- Python COM calls run on a single thread (COM STA requirement)
-- Tested on WPS 12.0 / Windows 11 / Python 3.11
+- WPS COM ProgID：`Kwps.Application`（Word）、`Ket.Application`（Excel）、`Kwpp.Application`（PPT）
+- COM 连接跨 MCP 调用保持，断连自动重连
+- WPS 中样式名使用中文（标题 1、正文），非英文
+- 支持 DeepSeek、OpenAI 及任何兼容 OpenAI 接口的 LLM API
+- Python COM 调用在单线程运行（COM STA 约束）
+- 实测环境：WPS 12.0 / Windows 11 / Python 3.11
 
 ## License
 
