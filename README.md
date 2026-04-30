@@ -187,6 +187,11 @@ wps-agent/
     ├── content_generator.py # AI 生成/总结/改写/扩写/翻译
     ├── format_suggester.py # 格式建议
     └── layout_analyzer.py # 文档分析 + 自然语言解析
+└── opencode_config/       # opencode AI 配置（skills / commands / agents）
+    ├── AGENTS.md           # Agent 行为规则（含 document-author 4-Phase 工作流）
+    ├── skills/             # 9 个 skill（含 document-author 文档智能化）
+    ├── commands/           # 4 个自定义命令
+    └── agents/             # 2 个自定义 agent
 ```
 
 ## 技术说明
