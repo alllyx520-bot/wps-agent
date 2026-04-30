@@ -176,3 +176,75 @@ failed = com_set_batch(obj, {"Prop1": val1, "Prop2": val2})
 ### 8.4 字体名称
 - 设置中文字体必须同时设 `Name` 和 `NameFarEast`
 - 常用中文字体：`黑体`、`宋体`、`仿宋`、`楷体`、`微软雅黑`
+
+---
+
+## 9. opencode_config：Skills + AGENTS.md 协同体系
+
+> `opencode_config/` 目录存放 opencode AI agent 的行为配置，通过 Skill 与 AGENTS.md 的协同实现类人智能化文档操作。
+
+### 9.1 架构分层
+
+```
+用户说"把参考文献格式改成国标"
+        │
+        ▼
+┌─ AGENTS.md（opencode 客户端配置）─────────┐
+│ 检测到 WPS Word 操作 → 自动加载            │
+│ document-author skill                      │
+└───────────┬──────────────────────────────┘
+            ▼
+┌─ document-author Skill ──────────────────┐
+│ Phase 1: 理解 → batch 读全文+大纲+格式     │
+│ Phase 2: 规划 → 输出修改计划+影响分析       │
+│ Phase 3: 执行 → 逐步操作，记录状态          │
+│ Phase 4: 验证 → 重读+一致性检查+自动修正    │
+└───────────┬──────────────────────────────┘
+            ▼
+     WPS MCP 工具 (content/format/table/...)
+```
+
+### 9.2 核心能力
+
+| 能力 | 说明 |
+|------|------|
+| **文档风格发现** | 读 20% 内容后自动推断文档自身格式规律，不盲套标准模板 |
+| **语义角色标注** | 自动识别段落类型（封面/标题/正文/参考文献），用语义引用而非数字索引 |
+| **一致性守护** | 每次修改后自动对比同类元素格式，不一致立即修正 |
+| **影响预判** | 操作前自动分析牵影响（目录/页码/交叉引用） |
+| **意图澄清** | 模糊指令不瞎猜，先分析候选方案再确认 |
+| **分层打磨** | Pass 1 内容 → Pass 2 格式 → Pass 3 细节 → Pass 4 视觉 |
+
+### 9.3 目录结构
+
+```
+opencode_config/
+├── AGENTS.md              # Agent 配置（自动触发 document-author）
+├── skills/                # 9 个 Skill
+│   ├── document-author/   # ★ 类人文档智能化（4-Phase 工作流）
+│   │   ├── SKILL.md       #     4-Phase 强制工作流 + 一致性守护 + 分层打磨
+│   │   └── references/
+│   │       └── conventions.md  # GB/T 9704 / 学术论文 / 实验报告格式参考
+│   ├── docx/              # .docx 离线创建/编辑 Skill
+│   ├── xlsx/              # .xlsx 电子表格 Skill
+│   ├── pptx/              # .pptx 演示文稿 Skill
+│   └── ...                # code-review / debug 等其它 Skill
+├── commands/              # 自定义快捷命令
+└── agents/                # 自定义 Agent
+```
+
+### 9.4 部署
+
+```powershell
+cd wps-agent
+robocopy opencode_config\ %USERPROFILE%\.config\opencode\ /E
+```
+
+重启 opencode 后生效。WPS Word 操作将自动走 4-Phase 工作流。
+
+### 9.5 修改 Skill 时注意
+
+- `document-author/SKILL.md` 不含硬编码格式规则，仅含思维框架
+- 格式常识在 `references/conventions.md`，作为参考而非强制规则
+- `AGENTS.md` 中的触发规则位于 `§2 document-author 智能化操作`
+- 修改任一 Skill 后需告知用户重新部署（robocopy 覆盖）

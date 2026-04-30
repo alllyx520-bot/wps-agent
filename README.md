@@ -34,7 +34,7 @@ intelligence/                ← AI 智能层
     ↕ COM (pywin32)
 WPS Office (Windows)
 └── opencode_config/          ← Agent 智能行为层
-    ├── AGENTS.md              # 自动触发规则：WPS Word 操作时加载 document-author
+    ├── AGENTS.md              # WPS Agent 专属 Agent 配置（自动触发 document-author）
     └── skills/document-author/ # 4-Phase 类人工作流（理解→规划→执行→验证）
 ├── Kwps.Application (Word)
 ├── Ket.Application (Excel)
@@ -192,7 +192,14 @@ set WPS_AGENT_LLM_KEY=sk-xxx
 | **意图澄清** | 模糊指令不瞎猜，先分析候选方案再确认 |
 | **分层打磨** | Pass 1 内容正确 → Pass 2 格式统一 → Pass 3 细节到位 → Pass 4 视觉润色 |
 
-**部署方式**：将 `opencode_config/` 下的文件复制到 `~/.config/opencode/` 对应位置即可启用。
+**部署方式**：将 `opencode_config/` 下文件复制到 `~/.config/opencode/` 即可。
+
+```bash
+cd wps-agent
+robocopy opencode_config\ %USERPROFILE%\.config\opencode\ /E
+```
+
+重启 opencode 后，WPS Word 操作将自动走 4-Phase 工作流。
 
 ## 项目结构
 
