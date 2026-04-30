@@ -30,9 +30,12 @@ intelligence/                ← AI 智能层
 ├── content_generator.py     # AI 内容生成
 ├── llm_client.py            # LLM API 客户端
 ├── template_manager.py      # 模板提取管理
-└── layout_analyzer.py       # 文档分析
+    └── layout_analyzer.py       # 文档分析
     ↕ COM (pywin32)
 WPS Office (Windows)
+└── opencode_config/          ← Agent 智能行为层
+    ├── AGENTS.md              # 自动触发规则：WPS Word 操作时加载 document-author
+    └── skills/document-author/ # 4-Phase 类人工作流（理解→规划→执行→验证）
 ├── Kwps.Application (Word)
 ├── Ket.Application (Excel)
 └── Kwpp.Application (PPT)
@@ -154,6 +157,42 @@ set WPS_AGENT_LLM_KEY=sk-xxx
 | `bid` | 标书 — 正式严谨、层次分明 |
 | `notice` | 通知/通告 — 仿宋正文、标准公文格式 |
 | `work_report` | 工作总结 — 层次清晰、汇报风格 |
+
+## 智能化文档操作：Skills + AGENTS.md 协同
+
+`opencode_config/` 目录存放 opencode AI agent 的行为配置，通过 Skill 与 AGENTS.md 的协同实现类人智能化文档操作：
+
+```
+用户说"把参考文献格式改成国标"
+        │
+        ▼
+┌─ AGENTS.md §10.1.2 ───────────────────┐
+│ 检测到 WPS Word 操作 → 自动加载          │
+│ document-author skill                   │
+└───────────┬────────────────────────────┘
+            ▼
+┌─ document-author Skill ─────────────────┐
+│ Phase 1: 理解 → batch 读全文+大纲+格式    │
+│ Phase 2: 规划 → 输出修改计划+影响分析      │
+│ Phase 3: 执行 → 逐步操作，记录状态         │
+│ Phase 4: 验证 → 重读+一致性检查+自动修正   │
+└───────────┬────────────────────────────┘
+            ▼
+     WPS MCP 工具 (content/format/table/...)
+```
+
+**核心能力：**
+
+| 能力 | 说明 |
+|------|------|
+| **文档风格发现** | 读 20% 内容后自动推断文档自身的格式规律，不盲套标准模板 |
+| **语义角色标注** | 自动识别段落类型（封面/标题/正文/参考文献...），用语义引用而非数字索引 |
+| **一致性守护** | 每次修改后自动对比同类元素格式，不一致立即修正 |
+| **影响预判** | 操作前自动分析牵影响（目录/页码/交叉引用） |
+| **意图澄清** | 模糊指令不瞎猜，先分析候选方案再确认 |
+| **分层打磨** | Pass 1 内容正确 → Pass 2 格式统一 → Pass 3 细节到位 → Pass 4 视觉润色 |
+
+**部署方式**：将 `opencode_config/` 下的文件复制到 `~/.config/opencode/` 对应位置即可启用。
 
 ## 项目结构
 
