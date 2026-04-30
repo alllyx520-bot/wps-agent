@@ -1,6 +1,6 @@
 # WPS AI Agent 使用教程
 
-> 一个深度集成 WPS Office 的 AI 排版专家，精通 Word 和 Excel，通过 MCP 协议与 AI Agent 实时交互。
+> 一个深度集成 WPS Office 的 AI 排版专家，精通 Word 和 Excel，通过 MCP 协议与 AI Agent 实时交互。配备 `document-author` Skill，实现类人 4-Phase 文档工作流（理解→规划→执行→验证）。
 
 ---
 
@@ -55,6 +55,42 @@ llm:
 ```
 
 保存后重启 opencode。
+
+### 1.5 部署 opencode 智能化配置（推荐）
+
+本仓库 `opencode_config/` 目录包含让 AI Agent 像人类文档专家一样工作的配置：
+
+```
+opencode_config/
+├── AGENTS.md              # Agent 行为规则（含 document-author 自动触发）
+├── skills/                # 9 个 Skill
+│   ├── document-author/   # ★ 类人文档智能化（4-Phase 工作流）
+│   ├── docx/              # .docx 离线创建/编辑
+│   ├── xlsx/              # .xlsx 电子表格
+│   ├── pptx/              # .pptx 演示文稿
+│   └── ...                # code-review / debug / agent-creator 等
+├── commands/              # 自定义快捷命令
+└── agents/                # 自定义 Agent
+```
+
+**核心 Skill：`document-author`**
+
+这个 Skill 颠覆了传统的"逐一调用 MCP 工具"模式，让 Agent 像人类一样思考和操作文档：
+
+```
+Phase 1: 理解     → 读写文档全文+大纲+格式，构建"文档心智模型"
+Phase 2: 规划     → 自然语言输出修改计划+影响分析，再动手
+Phase 3: 执行     → 逐步操作，每步记录状态（已改了什么、还剩什么）
+Phase 4: 验证     → 重读修改区域，一致性检查，有问题立即修正
+```
+
+**部署方法**：将 `opencode_config/` 下所有文件复制到 `~/.config/opencode/`：
+
+```powershell
+robocopy opencode_config\ $env:USERPROFILE\.config\opencode\ /E
+```
+
+重启 opencode 后，所有 WPS Word 操作将自动触发 4-Phase 工作流。
 
 ---
 
@@ -548,6 +584,23 @@ WPS Agent 天然支持 WPS 云端文档，无需特殊操作：
 5. "检查所有段落首行缩进"
 ```
 
+### 场景4：类人智能文档修改（document-author）
+
+启用 `document-author` skill 后，Agent 会像人类专家一样操作：
+
+```
+1. 打开需要修改的文档
+2. "把参考文献格式改成 GB/T 7714 国标"
+3. Agent 自动：
+   - Phase 1: 读取全文+大纲+格式，发现当前参考文献是字母序排列
+   - Phase 2: 输出规划："修改 ref[1]-ref[15] 为 GB/T 7714...
+                 → 注意 TOC 页码可能变化"
+   - Phase 3: 逐条调整，每步记录进度
+   - Phase 4: 重读参考文献区域，检查所有条目格式一致
+4. "修改第三章的标题格式和图注编号"
+5. Agent 发现文档风格 → 自动匹配现有标题格式，不盲套标准
+```
+
 ---
 
 ## 十二、常见问题
@@ -594,5 +647,10 @@ wps-agent/
 │   ├── layout_analyzer.py     # 排版分析器
 │   ├── format_suggester.py    # 格式建议器
 │   └── chinese_rules.py       # 中文排版规则库
+├── opencode_config/              # ★ opencode 智能化配置
+│   ├── AGENTS.md                # Agent 行为规则（自动触发 document-author）
+│   ├── skills/                  # 9个 Skill（含 document-author 4-Phase 工作流）
+│   ├── commands/                # 自定义快捷命令
+│   └── agents/                  # 自定义 Agent
 └── logs/                      # 日志
 ```
