@@ -147,10 +147,9 @@ Given a document's outline and format samples, suggest specific formatting actio
 Output a JSON array of formatting actions:
 [
   {"tool": "format", "action": "set_font", "para_index": N, "name": "黑体", "size": 22, "bold": true, "reason": "..."},
-  {"tool": "format", "action": "set_paragraph_format", "para_index": N, "alignment": "center", "reason": "..."},
   ...
 ]
-Only output valid JSON array, no extra text."""
+IMPORTANT: Chinese documents NEVER use italic (italic) for headings or body text. Use bold for emphasis, not italic. Do NOT include "italic": true in any output. Only output valid JSON array, no extra text."""
 
     user_prompt = f"""Outline:
 {json.dumps(outline, ensure_ascii=False, indent=2)}
@@ -176,6 +175,7 @@ def parse_natural_language_instructions(instructions: str, outline: List[Dict],
 Give the user's instructions and document context, output a JSON array of tool calls.
 
 IMPORTANT: Combine operations efficiently. Use format.batch for multiple paragraphs instead of individual calls.
+CRITICAL: Chinese documents NEVER use italic (italic / Italic) for headings or body text. Use bold (bold / Bold) for emphasis. Do NOT include "italic": true or "Italic": true in any output.
 
 Font names: 黑体, 宋体, 仿宋, 楷体, 微软雅黑, 方正小标宋简体, 等线, Calibri, Arial, Times New Roman
 Alignments: left, center, right, justify

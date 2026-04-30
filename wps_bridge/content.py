@@ -97,6 +97,8 @@ def batch(items: list, doc_index: Optional[int] = None) -> List[Dict]:
                 data = outline(doc_index)
             elif item_type == "full_text":
                 data = full_text(doc_index)
+            elif item_type == "shapes":
+                data = shapes(item.get("include_inlines", True), doc_index)
             elif item_type == "selection":
                 data = selection_info(doc_index)
             else:
@@ -117,6 +119,151 @@ def outline(doc_index: Optional[int] = None) -> List[Dict]:
         if 1 <= level <= 9:
             result.append({"index": i, "text": com_property(p.Range, "Text", "").strip(), "outline_level": level, "style": com_property(p.Range.Style, "NameLocal", "")})
     return result
+
+
+def shapes(include_inlines: bool = True, doc_index: Optional[int] = None) -> Dict:
+    """Read all shapes/drawings in the document body. Returns text content, type, position, size of each shape."""
+    WDSHAPES = {
+        1: "auto_shape", 2: "callout", 3: "chart", 5: "freeform",
+        6: "group", 9: "line", 11: "linked_picture", 13: "picture",
+        15: "text_effect", 16: "media", 17: "text_box", 19: "table",
+        20: "canvas", 21: "diagram", 22: "ink", 23: "ink_comment",
+        24: "smart_art", 25: "web_video",
+    }
+    doc = get_doc(doc_index)
+    result = []
+
+    # --- Floating shapes (doc.Shapes) ---
+    try:
+        for i in range(1, doc.Shapes.Count + 1):
+            try:
+                shp = doc.Shapes.Item(i)
+                item = _describe_shape(shp, i, "floating", WDSHAPES, doc)
+                if item:
+                    result.append(item)
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    # --- Inline shapes (doc.InlineShapes) ---
+    if include_inlines:
+        try:
+            for i in range(1, doc.InlineShapes.Count + 1):
+                try:
+                    ishp = doc.InlineShapes.Item(i)
+                    item = _describe_inline_shape(ishp, i, doc)
+                    if item:
+                        result.append(item)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    return {
+        "total": len(result),
+        "shapes": result,
+        "floating_count": _safe_count(doc.Shapes),
+        "inline_count": _safe_count(doc.InlineShapes) if include_inlines else 0,
+    }
+
+
+def _describe_shape(shp, idx, scope, WDSHAPES, doc) -> Optional[Dict]:
+    item = {"index": idx, "scope": scope}
+    shape_type = 0
+    try:
+        shape_type = com_property(shp, "Type", 0)
+        item["type"] = WDSHAPES.get(shape_type, f"unknown_{shape_type}")
+        item["type_id"] = shape_type
+    except Exception:
+        item["type"] = "unknown"
+    try:
+        item["name"] = com_property(shp, "Name", "")
+    except Exception:
+        item["name"] = ""
+    try:
+        item["visible"] = bool(com_property(shp, "Visible", 1))
+    except Exception:
+        pass
+    try:
+        item["alternative_text"] = com_property(shp, "AlternativeText", "")
+    except Exception:
+        pass
+    # Position and size
+    try:
+        item["left"] = com_property(shp, "Left", 0)
+        item["top"] = com_property(shp, "Top", 0)
+        item["width"] = com_property(shp, "Width", 0)
+        item["height"] = com_property(shp, "Height", 0)
+    except Exception:
+        pass
+    # Text content
+    try:
+        if bool(com_property(shp, "HasTextFrame", 0)):
+            tf = shp.TextFrame
+            item["text"] = com_property(tf.TextRange, "Text", "").strip()
+            item["has_text"] = len(item.get("text", "")) > 0
+    except Exception:
+        pass
+    # Group items
+    if shape_type == 6:  # msoGroup
+        try:
+            group_items = []
+            for gi in range(1, shp.GroupItems.Count + 1):
+                try:
+                    gshp = shp.GroupItems.Item(gi)
+                    git = _describe_shape(gshp, gi, "group", WDSHAPES, doc)
+                    if git:
+                        group_items.append(git)
+                except Exception:
+                    continue
+            if group_items:
+                item["group_items"] = group_items
+                item["group_total"] = len(group_items)
+        except Exception:
+            pass
+    # Anchor paragraph
+    try:
+        anchor = shp.Anchor
+        item["anchor_paragraph"] = anchor.Paragraphs.Item(1).Range.Start if anchor.Paragraphs.Count > 0 else "unknown"
+    except Exception:
+        pass
+    # Rotation
+    try:
+        rot = com_property(shp, "Rotation", 0)
+        if rot:
+            item["rotation"] = rot
+    except Exception:
+        pass
+    return item
+
+
+def _describe_inline_shape(ishp, idx, doc) -> Optional[Dict]:
+    item = {"index": idx, "scope": "inline"}
+    try:
+        shape_type = com_property(ishp, "Type", 0)
+        type_names = {1: "picture", 2: "linked_picture", 3: "ole_object", 4: "linked_ole_object", 5: "horizontal_line", 6: "chart", 9: "smart_art", 10: "3d_model", 12: "web_video"}
+        item["type"] = type_names.get(shape_type, f"unknown_{shape_type}")
+        item["type_id"] = shape_type
+    except Exception:
+        item["type"] = "unknown"
+    try:
+        item["width"] = com_property(ishp, "Width", 0)
+        item["height"] = com_property(ishp, "Height", 0)
+    except Exception:
+        pass
+    try:
+        item["alternative_text"] = com_property(ishp, "AlternativeText", "")
+    except Exception:
+        pass
+    return item
+
+
+def _safe_count(collection) -> int:
+    try:
+        return collection.Count
+    except Exception:
+        return 0
 
 
 def _insert_at_position(doc, text_lines: List[str], insert_before: bool = False):

@@ -25,7 +25,10 @@ def set_font(para_index=None, start_pos=None, end_pos=None, use_selection=False,
     doc = get_doc(doc_index)
     r = _resolve_range(doc, para_index, start_pos, end_pos, use_selection)
     f = r.Font
-    failed = com_set_batch(f, {"Name": kwargs.get("name"), "NameFarEast": kwargs.get("name_far_east"), "Size": kwargs.get("size"), "Bold": kwargs.get("bold"), "Italic": kwargs.get("italic"), "Underline": kwargs.get("underline"), "ColorIndex": kwargs.get("color_index"), "Superscript": kwargs.get("superscript"), "Subscript": kwargs.get("subscript"), "StrikeThrough": kwargs.get("strike_through"), "Spacing": kwargs.get("spacing"), "Scaling": kwargs.get("scaling"), "Kerning": kwargs.get("kerning")})
+    italic_val = kwargs.get("italic")
+    if italic_val is None:
+        italic_val = False
+    failed = com_set_batch(f, {"Name": kwargs.get("name"), "NameFarEast": kwargs.get("name_far_east"), "Size": kwargs.get("size"), "Bold": kwargs.get("bold"), "Italic": italic_val, "Underline": kwargs.get("underline"), "ColorIndex": kwargs.get("color_index"), "Superscript": kwargs.get("superscript"), "Subscript": kwargs.get("subscript"), "StrikeThrough": kwargs.get("strike_through"), "Spacing": kwargs.get("spacing"), "Scaling": kwargs.get("scaling"), "Kerning": kwargs.get("kerning")})
     return {"updated": True, "failed": failed, "text_sample": com_property(r, "Text", "")[:50]}
 
 
@@ -138,6 +141,8 @@ def batch(operations: list, doc_index=None):
                 res = get_font(op.get("para_index"), op.get("start_pos"), op.get("end_pos"), op.get("use_selection", False), doc_index)
             elif op_type == "get_paragraph_format":
                 res = get_paragraph_format(op["para_index"], doc_index)
+            elif op_type == "set_tab_stops":
+                res = set_tab_stops(op["para_index"], op.get("stops", []), doc_index)
             else:
                 results.append({"ok": False, "type": op_type, "error": f"Unknown op type: {op_type}"})
                 continue
@@ -203,3 +208,64 @@ def modify_style(style_name, doc_index=None, **kwargs):
     com_set_batch(s.Font, {"Name": kwargs.get("font_name"), "Size": kwargs.get("font_size"), "Bold": kwargs.get("bold"), "Italic": kwargs.get("italic")})
     com_set_batch(s.ParagraphFormat, {"Alignment": kwargs.get("alignment"), "FirstLineIndent": kwargs.get("first_line_indent"), "LineSpacingRule": kwargs.get("line_spacing_rule"), "LineSpacing": kwargs.get("line_spacing"), "SpaceBefore": kwargs.get("space_before"), "SpaceAfter": kwargs.get("space_after")})
     return {"modified": com_property(s, "NameLocal", "")}
+
+
+def add_hyperlink(text: str, url: str, para_index: Optional[int] = None, doc_index: Optional[int] = None) -> Dict:
+    """Insert a hyperlink at paragraph. If para_index is given, add to that paragraph; otherwise append."""
+    doc = get_doc(doc_index)
+    if para_index is not None:
+        rng = doc.Paragraphs.Item(para_index).Range
+        rng.Collapse(0)  # Collapse to start
+    else:
+        rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+    doc.Hyperlinks.Add(rng, url, "", "", text)
+    return {"hyperlink": True, "text": text, "url": url}
+
+
+def set_tab_stops(para_index: int, stops: List[Dict], doc_index: Optional[int] = None) -> Dict:
+    """Set tab stops for a paragraph.
+    stops = [{"position": 400, "alignment": "right", "leader": "dot"}, ...]
+    alignment: left/center/right/decimal
+    leader: none/dot/dash/heavy/heavy_dash
+    """
+    ALIGN = {"left": 0, "center": 1, "right": 2, "decimal": 3}
+    LEADER = {"none": 0, "dot": 1, "dash": 2, "heavy": 3, "heavy_dash": 4}
+    doc = get_doc(doc_index)
+    pf = doc.Paragraphs.Item(para_index).Format
+    try:
+        pf.TabStops.ClearAll()
+    except Exception:
+        pass
+    applied = []
+    for s in stops:
+        try:
+            ts = pf.TabStops.Add(
+                s.get("position", 400),
+                ALIGN.get(s.get("alignment", "left"), 0),
+                LEADER.get(s.get("leader", "none"), 0)
+            )
+            applied.append(s)
+        except Exception:
+            continue
+    return {"tab_stops_set": len(applied), "tab_stops": applied}
+
+
+def set_bullet_list(para_indices: List[int], bullet_char: Optional[str] = None, doc_index: Optional[int] = None) -> Dict:
+    """Apply bullet list formatting to paragraphs. If bullet_char not given, uses WPS default bullet."""
+    doc = get_doc(doc_index)
+    applied = []
+    for idx in para_indices:
+        try:
+            pf = doc.Paragraphs.Item(idx).Format
+            rng = doc.Paragraphs.Item(idx).Range
+            list_format = rng.ListFormat
+            list_format.ApplyBulletDefault()
+            if bullet_char:
+                try:
+                    list_format.ListTemplate.ListLevels.Item(1).NumberFormat = bullet_char
+                except Exception:
+                    pass
+            applied.append(idx)
+        except Exception:
+            continue
+    return {"bullet_applied": len(applied), "para_indices": applied}

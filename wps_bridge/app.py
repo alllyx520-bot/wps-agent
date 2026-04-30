@@ -28,13 +28,19 @@ def get_app(visible: bool = True, force_new: bool = False) -> Any:
             _app.Documents.Count
             return _app
         except Exception:
-            logger.warning("COM connection lost, reconnecting...")
+            logger.warning("COM connection lost, reconnecting to existing WPS instance...")
             _app = None
     if not force_new:
-        try:
-            _app = win32com.client.GetObject(None, "Kwps.Application")
-        except Exception:
-            _app = win32com.client.Dispatch("Kwps.Application")
+        # Try multiple ProgIDs to connect to already-running WPS
+        for progid in ("Kwps.Application", "WPS.Application", "ET.Application"):
+            try:
+                _app = win32com.client.GetObject(None, progid)
+                break
+            except Exception:
+                continue
+        if _app is None:
+            logger.error("No running WPS instance found. Start WPS first.")
+            raise RuntimeError("WPS is not running. Please open WPS Office and try again.")
     else:
         _app = win32com.client.Dispatch("Kwps.Application")
     com_set(_app, "Visible", visible)

@@ -51,9 +51,9 @@ async def list_tools():
              }, "required": ["action"]}),
 
         # --- content ---
-        Tool(name="content", description="Read and write WPS Word document text. Use when user asks to: read/view/show document text, get paragraph content, check selection, see document outline/structure, insert/delete/replace text. IMPORTANT: Use batch action to read multiple items in ONE call (e.g. batch with types paragraph+outline). For cover pages, use create_cover (single call creates and formats all lines). Actions: full_text/paragraph/paragraphs/selection/range/outline/insert_text/delete_range/replace_range/batch/create_cover",
+        Tool(name="content", description="Read and write WPS Word document text. Use when user asks to: read/view/show document text, get paragraph content, check selection, see document outline/structure, insert/delete/replace text, read shapes/drawings/textboxes. IMPORTANT: Use batch action to read multiple items in ONE call (e.g. batch with types paragraph+outline). For cover pages, use create_cover (single call creates and formats all lines). Actions: full_text/paragraph/paragraphs/selection/range/outline/shapes/insert_text/delete_range/replace_range/batch/create_cover",
              inputSchema={"type": "object", "properties": {
-                 "action": {"type": "string", "description": "full_text (get entire doc), paragraph (get one by index), paragraphs (get range), selection (current cursor), range (by start/end position), outline (heading structure), insert_text, delete_range, replace_range, batch (read multiple items at once), create_cover (single-call cover page, pass lines array of {text, font_name, font_size, bold, alignment, space_before, space_after...})"},
+                 "action": {"type": "string", "description": "full_text (get entire doc), paragraph (get one by index), paragraphs (get range), selection (current cursor), range (by start/end position), outline (heading structure), shapes (read all shapes/drawings/textboxes with text content), insert_text, delete_range, replace_range, batch (read multiple items at once), create_cover (single-call cover page, pass lines array of {text, font_name, font_size, bold, alignment, space_before, space_after...})"},
                  "para_index": {"type": "integer", "description": "Paragraph number (1-based)"},
                  "start": {"type": "integer", "description": "Start paragraph index for paragraphs action"},
                  "count": {"type": "integer", "description": "How many paragraphs to return"},
@@ -61,6 +61,7 @@ async def list_tools():
                  "end_pos": {"type": "integer", "description": "Character end position for range/delete/replace (optional for delete_range, defaults to doc end)"},
                  "text": {"type": "string", "description": "Text to insert"},
                  "new_text": {"type": "string", "description": "Replacement text"},
+                 "include_inlines": {"type": "boolean", "description": "For shapes: whether to include inline shapes (default true)"},
                  "position": {"type": "string", "description": "Where to insert: end (end of doc), before (before para_index), after (after para_index)"},
                  "clear_existing": {"type": "boolean", "description": "For create_cover: whether to clear existing content first (default true)"},
                  "lines": {"type": "array", "items": {"type": "object", "properties": {
@@ -78,9 +79,9 @@ async def list_tools():
              }, "required": ["action"]}),
 
         # --- format ---
-        Tool(name="format", description="Get or set font and paragraph formatting in WPS Word. Use when user asks to: change font/size/bold/italic/color, modify paragraph alignment/indentation/line spacing, apply styles, clear formatting, use format painter, add/remove watermark. IMPORTANT: Use batch action to modify/read multiple paragraphs in ONE call. Supports Chinese font names: 黑体, 宋体, 仿宋, 楷体, 微软雅黑. Alignment: left/center/right/justify. Line spacing: single/1.5lines/double/exactly/multiple. Actions: get_font/set_font/get_paragraph_format/set_paragraph_format/apply_style/clear_formatting/copy_format/batch/add_watermark/remove_watermark",
+        Tool(name="format", description="Get or set font and paragraph formatting in WPS Word. Use when user asks to: change font/size/bold/italic/color, modify paragraph alignment/indentation/line spacing, apply styles, clear formatting, use format painter, add/remove watermark, add hyperlinks, set tab stops, create bullet lists. IMPORTANT: Use batch action to modify/read multiple paragraphs in ONE call. Supports Chinese font names: 黑体, 宋体, 仿宋, 楷体, 微软雅黑. Alignment: left/center/right/justify. Line spacing: single/1.5lines/double/exactly/multiple. Actions: get_font/set_font/get_paragraph_format/set_paragraph_format/apply_style/clear_formatting/copy_format/batch/add_watermark/remove_watermark/add_hyperlink/set_tab_stops/set_bullet_list",
              inputSchema={"type": "object", "properties": {
-                 "action": {"type": "string", "description": "get_font (read font), set_font (modify font), get_paragraph_format (read paragraph), set_paragraph_format (modify paragraph), apply_style (apply named style), clear_formatting (reset), copy_format (format painter from source to targets), batch (execute multiple operations at once), add_watermark (text watermark), remove_watermark (delete all watermarks)"},
+                 "action": {"type": "string", "description": "get_font (read font), set_font (modify font), get_paragraph_format (read paragraph), set_paragraph_format (modify paragraph), apply_style (apply named style), clear_formatting (reset), copy_format (format painter from source to targets), batch (execute multiple operations at once), add_watermark (text watermark), remove_watermark (delete all watermarks), add_hyperlink (insert clickable link), set_tab_stops (configure paragraph tab stops), set_bullet_list (apply bullet list formatting)"},
                  "para_index": {"type": "integer", "description": "Paragraph number to operate on (1-based)"},
                  "use_selection": {"type": "boolean", "description": "If true, operate on current selection instead of para_index"},
                  "source_para_index": {"type": "integer", "description": "Source paragraph for copy_format"},
@@ -115,7 +116,7 @@ async def list_tools():
              }, "required": ["action"]}),
 
         # --- table ---
-        Tool(name="table", description="Create and manipulate Word tables. Use when user asks to: insert/delete tables, fill table cells, format tables with headers/borders/colors, merge cells, adjust column widths, apply alternating row colors. Table index is 1-based. IMPORTANT: Use batch_read to read multiple tables in ONE call. Actions: count/info/read/create/delete/set_cell_text/format_cell/set_header/format_borders/merge_cells/auto_fit/set_column_width/alternate_rows/batch_read",
+        Tool(name="table", description="Create and manipulate Word tables. Use when user asks to: insert/delete tables, fill table cells, format tables with headers/borders/colors, merge cells, adjust column widths, apply alternating row colors, set cell shading, get table dimensions. Table index is 1-based. IMPORTANT: Use batch_read to read multiple tables in ONE call. Actions: count/info/read/create/delete/set_cell_text/format_cell/set_header/format_borders/merge_cells/auto_fit/set_column_width/alternate_rows/set_cell_shading/table_dimensions/batch_read",
              inputSchema={"type": "object", "properties": {
                  "action": {"type": "string", "description": "count/info/read/create/delete/set_cell_text (fill cell)/format_cell/set_header (bold header row)/format_borders/merge_cells/auto_fit/set_column_width/alternate_rows/batch_read (read multiple tables at once)"},
                  "table_index": {"type": "integer", "description": "Table number (1-based)"}, "rows": {"type": "integer", "description": "Number of rows for create"}, "cols": {"type": "integer", "description": "Number of columns for create"},
@@ -141,7 +142,7 @@ async def list_tools():
              }, "required": ["action"]}),
 
         # --- layout ---
-        Tool(name="layout", description="Configure WPS Word page layout. Use when user asks to: change paper size (A4), adjust margins, switch portrait/landscape, add section breaks, set columns, edit headers/footers, or add page numbers. Actions: page_setup/section_info/add_section_break/columns/header_footer/page_numbers",
+        Tool(name="layout", description="Configure WPS Word page layout. Use when user asks to: change paper size (A4), adjust margins, switch portrait/landscape, add section breaks, set columns, edit headers/footers, add page numbers, get page dimensions. Actions: page_setup/section_info/add_section_break/columns/header_footer/page_numbers/page_dimensions",
              inputSchema={"type": "object", "properties": {
                  "action": {"type": "string", "description": "page_setup (margins/paper/orientation), section_info (current section details), add_section_break (insert break), columns (set column count), header_footer (set text), page_numbers (add/configure)"},
                  "section_index": {"type": "integer", "description": "Section number (1-based, optional)"},
@@ -232,7 +233,7 @@ async def list_tools():
              }, "required": ["action", "doc_id_a", "doc_id_b"]}),
 
         # --- ai_format ---
-        Tool(name="ai_format", description="AI-powered intelligent formatting for WPS Word. Use when user asks to: analyze document formatting, suggest improvements, apply professional templates, auto-apply formatting from natural language, generate table of contents, add multi-level heading numbers, validate formatting quality, generate/summarize/rewrite/expand/translate content, or run quality supervision to auto-fix layout issues. Actions: analyze/suggest/apply_template/reformat/auto_toc/auto_numbering/validate/generate_content/summarize_document/rewrite_paragraph/expand_section/translate_section/supervise",
+        Tool(name="ai_format", description="AI-powered intelligent formatting for WPS Word. Use when user asks to: analyze document formatting, suggest improvements, apply professional templates, auto-apply formatting from natural language, generate table of contents, add multi-level heading numbers, validate formatting quality, generate/summarize/rewrite/expand/translate content, or run quality supervision to auto-fix layout issues. Also supports design suggestions (palettes, typography, anti-patterns). Actions: analyze/suggest/apply_template/reformat/auto_toc/auto_numbering/validate/generate_content/summarize_document/rewrite_paragraph/expand_section/translate_section/supervise/suggest_design",
              inputSchema={"type": "object", "properties": {
                  "action": {"type": "string", "description": "analyze/suggest/apply_template/reformat/auto_toc/auto_numbering/validate/generate_content/summarize_document/rewrite_paragraph/expand_section/translate_section/supervise (auto-fix layout/cover/table issues)"},
                  "template_name": {"type": "string", "description": "official/thesis/report/resume/custom"},
@@ -241,7 +242,7 @@ async def list_tools():
              }, "required": ["action"]}),
 
         # --- presentation ---
-        Tool(name="presentation", description="Create and manipulate WPS Presentations (PPT). Use when user asks to: create/open/save PPT, add slides, set titles/body text, insert images/tables, format text, add speaker notes, or export slides as images. Actions: create/open/list/save/close/slide_count/slide_info/add_slide/delete_slide/set_title/set_body/add_textbox/format_text/insert_image/insert_table/fill_cell/apply_theme/add_notes",
+        Tool(name="presentation", description="Create and manipulate WPS Presentations (PPT). Use when user asks to: create/open/save PPT, add slides, set titles/body text, insert images/tables, format text, add speaker notes, add shapes, reorder slides, set slide backgrounds, add charts, or export slides as images. Actions: create/open/list/save/close/slide_count/slide_info/add_slide/delete_slide/set_title/set_body/add_textbox/format_text/insert_image/insert_table/fill_cell/apply_theme/add_notes/add_shape/reorder_slides/set_slide_background/add_chart_modern",
              inputSchema={"type": "object", "properties": {
                  "action": {"type": "string", "description": "create (new presentation)/open (file)/list (all open)/save/close/slide_count/slide_info/add_slide/delete_slide/set_title/set_body/add_textbox/format_text/insert_image/insert_table/fill_cell/apply_theme/add_notes"},
                  "filepath": {"type": "string", "description": "Path to .pptx file"},
@@ -267,7 +268,7 @@ async def list_tools():
              }, "required": ["action"]}),
 
         # --- excel ---
-        Tool(name="excel", description="Create and manipulate WPS Excel spreadsheets. Use when user asks to: create/open/save Excel workbooks, switch/add/rename sheets, read/write cell values, write tabular data, set formulas (=SUM etc.), format cells (font/color/borders), adjust column widths, merge cells, create charts, sort data, filter, conditional format, freeze panes. Actions: create/open/list/save/close/sheet_list/sheet_activate/sheet_add/sheet_copy/sheet_delete/sheet_move/cell_read/cell_write/range_read/range_write/font_set/interior_set/borders_set/column_width/auto_fit/merge_cells/formula_set/chart_add/chart_set_source/chart_set_title/sort/auto_filter/remove_filter/conditional_format/freeze_panes/get_used_range",
+        Tool(name="excel", description="Create and manipulate WPS Excel spreadsheets. Use when user asks to: create/open/save Excel workbooks, switch/add/rename sheets, read/write cell values, write tabular data, set formulas (=SUM etc.), format cells (font/color/borders), adjust column widths, merge cells, create charts, sort data, filter, conditional format, freeze panes, insert/delete rows, add cell comments, import/export CSV, validate formulas. Actions: create/open/list/save/close/sheet_list/sheet_activate/sheet_add/sheet_copy/sheet_delete/sheet_move/cell_read/cell_write/range_read/range_write/font_set/interior_set/borders_set/column_width/auto_fit/merge_cells/formula_set/chart_add/chart_set_source/chart_set_title/sort/auto_filter/remove_filter/conditional_format/freeze_panes/get_used_range/insert_rows/delete_rows/add_cell_comment/import_csv/export_csv/validate_formulas/recalc_formulas",
              inputSchema={"type": "object", "properties": {
                  "action": {"type": "string", "description": "create (new workbook)/open (file)/list (all workbooks)/save/close/sheet_list/sheet_activate/sheet_add/sheet_copy/sheet_delete/sheet_move/cell_read (single cell)/cell_write (single cell)/range_read (A1:D10)/range_write (write 2D array to range)/font_set (format cell font)/interior_set (cell background color)/borders_set (add borders)/column_width/auto_fit/merge_cells/formula_set (e.g. =SUM(C2:C5))/chart_add/chart_set_source/chart_set_title/sort/auto_filter/remove_filter/conditional_format/freeze_panes/get_used_range"},
                  "filepath": {"type": "string", "description": "Path to .xlsx file"},
@@ -286,6 +287,39 @@ async def list_tools():
                  "chart_type": {"type": "integer", "description": "Chart type code"}, "left": {"type": "integer"}, "top": {"type": "integer"},
                  "chart_width": {"type": "integer"}, "chart_height": {"type": "integer"},
                  "save_changes": {"type": "boolean", "description": "Whether to save before closing"},
+             }, "required": ["action"]}),
+
+        # --- offline_docx ---
+        Tool(name="offline_docx", description="Generate and validate Word .docx files offline (no WPS required). Use when WPS is not available or user wants programmatic document builder. Actions: build (create .docx from JSON structure), build_cover (generate standalone cover page), validate (check XML structure issues)",
+             inputSchema={"type": "object", "properties": {
+                 "action": {"type": "string", "description": "build (full docx from structure), build_cover (cover page only), validate (check XML issues)"},
+                 "structure": {"type": "object", "description": "Document structure JSON for build action"},
+                 "lines": {"type": "array", "items": {"type": "object"}, "description": "Cover page line specs for build_cover"},
+                 "filepath": {"type": "string", "description": "Input file path for validate"},
+                 "auto_fix": {"type": "boolean", "description": "Attempt auto-repair (validate action)"},
+                 "output_path": {"type": "string", "description": "Output .docx file path"},
+             }, "required": ["action"]}),
+
+        # --- offline_xlsx ---
+        Tool(name="offline_xlsx", description="Analyze, create and validate Excel .xlsx files offline (no WPS required). Use when WPS is not available or need pandas data analysis. Actions: build (create .xlsx from JSON), analyze (pandas analysis of existing file), convert_csv (CSV to XLSX), validate_formulas (scan for errors with openpyxl), recalc_and_verify (LibreOffice recalc + error scan), apply_financial_colors",
+             inputSchema={"type": "object", "properties": {
+                 "action": {"type": "string", "description": "build/analyze/convert_csv/validate_formulas/recalc_and_verify/apply_financial_colors"},
+                 "structure": {"type": "object", "description": "Spreadsheet structure JSON for build action"},
+                 "filepath": {"type": "string", "description": "Input file path for analyze/convert_csv/validate_formulas/recalc_and_verify"},
+                 "output_path": {"type": "string", "description": "Output file path"},
+                 "csv_path": {"type": "string"}, "delimiter": {"type": "string", "description": "CSV delimiter (default comma)"},
+                 "timeout": {"type": "integer", "description": "Timeout seconds for recalc_and_verify (default 60)"},
+             }, "required": ["action"]}),
+
+        # --- offline_pptx ---
+        Tool(name="offline_pptx", description="Create, analyze and export PPTX presentations offline (no WPS required). Use when WPS is not available or need programmatic slide creation. Actions: build (create .pptx from JSON structure), extract_text (read text from existing pptx), export_slides (convert to JPEG slide images via LibreOffice)",
+             inputSchema={"type": "object", "properties": {
+                 "action": {"type": "string", "description": "build (create pptx from structure), extract_text (read text from pptx), export_slides (render slides as JPEG)"},
+                 "structure": {"type": "object", "description": "Presentation structure JSON for build action"},
+                 "filepath": {"type": "string", "description": "Input file path for extract_text/export_slides"},
+                 "output_path": {"type": "string", "description": "Output .pptx file path for build"},
+                 "output_prefix": {"type": "string", "description": "Filename prefix for exported slide images (default 'slide')"},
+                 "dpi": {"type": "integer", "description": "Image DPI for export_slides (default 150)"},
              }, "required": ["action"]}),
     ]
 
@@ -345,6 +379,8 @@ async def call_tool(name: str, arguments: dict):
                 result = content.create_cover(arguments["lines"], arguments.get("clear_existing", True), doc_index)
             elif action == "batch":
                 result = content.batch(arguments["items"], doc_index)
+            elif action == "shapes":
+                result = content.shapes(arguments.get("include_inlines", True), doc_index)
             else:
                 result = {"error": f"Unknown content action: {action}"}
 
@@ -369,6 +405,12 @@ async def call_tool(name: str, arguments: dict):
                 result = document.add_watermark(arguments["text"], arguments.get("font_size", 72), arguments.get("color", 15), doc_index)
             elif action == "remove_watermark":
                 result = document.remove_watermark(doc_index)
+            elif action == "add_hyperlink":
+                result = formatting.add_hyperlink(arguments["text"], arguments["url"], arguments.get("para_index"), doc_index)
+            elif action == "set_tab_stops":
+                result = formatting.set_tab_stops(arguments["para_index"], arguments.get("stops", []), doc_index)
+            elif action == "set_bullet_list":
+                result = formatting.set_bullet_list(arguments["para_indices"], arguments.get("bullet_char"), doc_index)
             else:
                 result = {"error": f"Unknown format action: {action}"}
 
@@ -413,6 +455,10 @@ async def call_tool(name: str, arguments: dict):
                 result = table.alternate_rows(arguments["table_index"], arguments.get("color1", "FFFFFF"), arguments.get("color2", "F2F2F2"), doc_index)
             elif action == "batch_read":
                 result = table.batch_read(arguments["table_indices"], doc_index)
+            elif action == "set_cell_shading":
+                result = table.set_cell_shading(arguments["table_index"], arguments["row"], arguments["col"], arguments["bg_color"], doc_index)
+            elif action == "table_dimensions":
+                result = table.table_dimensions(arguments["table_index"], doc_index)
             else:
                 result = {"error": f"Unknown table action: {action}"}
 
@@ -441,6 +487,8 @@ async def call_tool(name: str, arguments: dict):
                 result = layout.header_footer(arguments.get("section_index"), arguments.get("header_type", "header"), arguments.get("text"), doc_index)
             elif action == "page_numbers":
                 result = layout.page_numbers(arguments.get("alignment", "center"), arguments.get("start_at"), arguments.get("section_index"), doc_index)
+            elif action == "page_dimensions":
+                result = layout.get_page_dimensions(arguments.get("section_index"), doc_index)
             else:
                 result = {"error": f"Unknown layout action: {action}"}
 
@@ -550,6 +598,8 @@ async def call_tool(name: str, arguments: dict):
                 result = _ai_translate(arguments["para_index"], arguments.get("target_lang", "en"), doc_index)
             elif action == "supervise":
                 result = _ai_supervise(doc_index)
+            elif action == "suggest_design":
+                result = _ai_suggest_design(arguments.get("topic", ""), arguments.get("category", ""))
             else:
                 result = {"error": f"Unknown ai_format action: {action}"}
 
@@ -558,6 +608,15 @@ async def call_tool(name: str, arguments: dict):
 
         elif name == "presentation":
             result = _handle_presentation(action, arguments)
+
+        elif name == "offline_docx":
+            result = _handle_offline_docx(action, arguments)
+
+        elif name == "offline_xlsx":
+            result = _handle_offline_xlsx(action, arguments)
+
+        elif name == "offline_pptx":
+            result = _handle_offline_pptx(action, arguments)
 
         else:
             result = {"error": f"Unknown tool: {name}"}
@@ -683,6 +742,9 @@ def _ai_reformat(instructions, doc_index):
         for act in actions_list:
             tool_name = act.get("tool", "format")
             act_args = {k: v for k, v in act.items() if k not in ("tool", "reason")}
+            # Defensive: strip italic from LLM-generated actions (Chinese docs never use italic)
+            if act_args.get("italic") is True:
+                act_args["italic"] = False
             try:
                 if tool_name == "format":
                     if act_args.get("action") == "set_font":
@@ -892,6 +954,25 @@ def _ai_supervise(doc_index):
     return sanitize_and_fix(doc_index)
 
 
+def _ai_suggest_design(topic: str = "", category: str = ""):
+    """Suggest PPTX design palette and typography based on topic."""
+    from intelligence.design_rules import PPTX_PALETTES, PPTX_TYPOGRAPHY, PPTX_ANTI_PATTERNS, PPTX_SIZES, suggest_palette, suggest_typography
+    result = {
+        "palettes": list(PPTX_PALETTES.keys()) if not topic else None,
+        "typography": PPTX_TYPOGRAPHY,
+        "anti_patterns": PPTX_ANTI_PATTERNS,
+        "sizes": PPTX_SIZES,
+    }
+    if topic:
+        pal = suggest_palette(topic)
+        result["recommended_palette"] = pal
+        result["recommended_typography"] = suggest_typography(pal.get("palette", {}).get("style", "professional"))
+    if category:
+        if category in PPTX_PALETTES:
+            result["palette_details"] = PPTX_PALETTES[category]
+    return result
+
+
 def _handle_excel(action: str, args: dict):
     from wps_bridge import excel_app as xl
 
@@ -957,6 +1038,22 @@ def _handle_excel(action: str, args: dict):
         result = xl.sheet_move(args["name"], args.get("before"), args.get("after"))
     elif action == "freeze_panes":
         result = xl.freeze_panes(args["cell_ref"], args.get("sheet_name"))
+    elif action == "insert_rows":
+        result = xl.insert_rows(args["row"], args.get("count", 1), args.get("sheet_name"))
+    elif action == "delete_rows":
+        result = xl.delete_rows(args["row"], args.get("count", 1), args.get("sheet_name"))
+    elif action == "add_cell_comment":
+        result = xl.add_cell_comment(args["cell_ref"], args["text"], args.get("sheet_name"))
+    elif action == "import_csv":
+        result = xl.import_csv(args["filepath"], args.get("delimiter", ","), args.get("has_header", True), args.get("sheet_name"))
+    elif action == "export_csv":
+        result = xl.export_csv(args["filepath"], args["start"], args["end"], args.get("delimiter", ","), args.get("sheet_name"))
+    elif action == "validate_formulas":
+        result = xl.validate_formulas(args.get("sheet_name"))
+    elif action == "recalc_formulas":
+        result = xl.recalc_formulas()
+    elif action == "apply_financial_colors":
+        result = xl.apply_financial_colors(args.get("sheet_name"))
     elif action == "get_used_range":
         result = xl.get_used_range(args.get("sheet_name"))
     else:
@@ -1003,9 +1100,60 @@ def _handle_presentation(action: str, args: dict):
         result = ppt.apply_theme(args["theme_name"])
     elif action == "add_notes":
         result = ppt.add_notes(args["slide_index"], args["text"])
+    elif action == "add_shape":
+        result = ppt.add_shape(args["slide_index"], args["shape_type"], args.get("left", 100), args.get("top", 100), args.get("width", 300), args.get("height", 200), args.get("fill_color"), args.get("line_color"), args.get("line_width", 1))
+    elif action == "reorder_slides":
+        result = ppt.reorder_slides(args["slide_order"])
+    elif action == "set_slide_background":
+        result = ppt.set_slide_background(args["slide_index"], args.get("color_hex"), args.get("image_path"), args.get("transparency", 0))
+    elif action == "add_chart_modern":
+        result = ppt.add_chart_modern(args["slide_index"], args["chart_type"], args["categories"], args["values"], args.get("series_name", ""), args.get("title", ""), args.get("left", 50), args.get("top", 100), args.get("width", 600), args.get("height", 350))
     else:
         result = {"error": f"Unknown presentation action: {action}"}
     return result
+
+
+def _handle_offline_docx(action: str, args: dict):
+    from offline.docx_builder import build_docx, build_cover_page
+    output_path = args.get("output_path", args.get("output", "output.docx"))
+    if action == "build":
+        return build_docx(args.get("structure", {}), output_path)
+    elif action == "build_cover":
+        return build_cover_page(args.get("lines", []), output_path)
+    elif action == "validate":
+        from scripts.validate_docx import validate_docx
+        return validate_docx(args["filepath"], args.get("auto_fix", False))
+    return {"error": f"Unknown offline_docx action: {action}"}
+
+
+def _handle_offline_xlsx(action: str, args: dict):
+    from offline.xlsx_builder import build_xlsx, analyze_xlsx, convert_csv_to_xlsx, validate_formulas_offline, apply_financial_colors_offline
+    if action == "build":
+        return build_xlsx(args.get("structure", {}), args.get("output_path", "output.xlsx"))
+    elif action == "analyze":
+        return analyze_xlsx(args["filepath"])
+    elif action == "convert_csv":
+        return convert_csv_to_xlsx(args["csv_path"], args.get("output_path", "output.xlsx"), args.get("delimiter", ","))
+    elif action == "validate_formulas":
+        return validate_formulas_offline(args["filepath"])
+    elif action == "recalc_and_verify":
+        from scripts.recalc_xlsx import recalc_xlsx
+        return recalc_xlsx(args["filepath"], args.get("timeout", 60))
+    elif action == "apply_financial_colors":
+        return apply_financial_colors_offline(args["filepath"])
+    return {"error": f"Unknown offline_xlsx action: {action}"}
+
+
+def _handle_offline_pptx(action: str, args: dict):
+    from offline.pptx_builder import build_pptx, extract_pptx_text
+    if action == "build":
+        return build_pptx(args.get("structure", {}), args.get("output_path", "output.pptx"))
+    elif action == "extract_text":
+        return extract_pptx_text(args["filepath"])
+    elif action == "export_slides":
+        from scripts.thumbnail_pptx import generate_thumbnails
+        return generate_thumbnails(args["filepath"], args.get("output_prefix", "slide"), args.get("dpi", 150))
+    return {"error": f"Unknown offline_pptx action: {action}"}
 
 
 def _handle_template(action: str, args: dict, doc_index):

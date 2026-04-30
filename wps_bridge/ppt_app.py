@@ -21,10 +21,14 @@ class PPTApplication:
                 cls._app = None
         co_init()
         cls._visible = visible
-        try:
-            cls._app = win32com.client.GetObject(None, "Kwpp.Application")
-        except Exception:
-            cls._app = win32com.client.Dispatch("Kwpp.Application")
+        for progid in ("Kwpp.Application", "PowerPoint.Application", "WPP.Application"):
+            try:
+                cls._app = win32com.client.GetObject(None, progid)
+                break
+            except Exception:
+                continue
+        if cls._app is None:
+            raise RuntimeError("PowerPoint/WPS Presentation is not running. Please open WPS PPT first.")
         com_set(cls._app, "Visible", visible)
         return cls._app
 
@@ -326,3 +330,118 @@ def set_slide_format(slide_index: int, background_color: Optional[int] = None) -
         except Exception as e:
             return {"error": str(e)}
     return {"slide": slide_index, "background_set": True}
+
+
+def add_shape(slide_index: int, shape_type: str, left: float = 100, top: float = 100,
+              width: float = 300, height: float = 200, fill_color: Optional[str] = None,
+              line_color: Optional[str] = None, line_width: float = 1) -> Dict:
+    """Add a shape to a slide. type: rectangle/oval/line/rounded_rectangle"""
+    SHAPES = {"rectangle": 1, "oval": 9, "line": 10, "rounded_rectangle": 5}
+    pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
+    st = SHAPES.get(shape_type, 1)
+    slide = pres.Slides.Item(slide_index)
+    shp = slide.Shapes.AddShape(st, left, top, width, height)
+    if fill_color:
+        try:
+            shp.Fill.ForeColor.RGB = int(fill_color, 16)
+            shp.Fill.Visible = True
+        except Exception:
+            pass
+    if line_color:
+        try:
+            shp.Line.ForeColor.RGB = int(line_color, 16)
+            shp.Line.Weight = line_width
+            shp.Line.Visible = True
+        except Exception:
+            pass
+    return {"slide": slide_index, "shape_index": slide.Shapes.Count, "type": shape_type}
+
+
+def reorder_slides(slide_order: List[int]) -> Dict:
+    """Reorder slides by their new index order. slide_order = [3, 1, 2] means slide 3 -> pos 1, etc."""
+    pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
+    total = pres.Slides.Count
+    if len(slide_order) != total:
+        return {"error": f"slide_order length ({len(slide_order)}) must match total slides ({total})"}
+    moved = 0
+    for target_pos, slide_idx in enumerate(slide_order, 1):
+        if slide_idx != target_pos:
+            try:
+                pres.Slides.Item(slide_idx).MoveTo(target_pos)
+                moved += 1
+            except Exception:
+                continue
+    return {"reordered": total, "moved": moved}
+
+
+def set_slide_background(slide_index: int, color_hex: Optional[str] = None,
+                         image_path: Optional[str] = None, transparency: int = 0) -> Dict:
+    """Set slide background to solid color or image. color_hex: 6-char hex like '1E2761'"""
+    pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
+    slide = pres.Slides.Item(slide_index)
+    bg = slide.Background
+    if color_hex:
+        try:
+            bg.Fill.ForeColor.RGB = int(color_hex, 16)
+            if transparency:
+                bg.Fill.ForeColor.Brightness = 1.0 - (transparency / 100.0)
+            bg.Fill.Visible = True
+        except Exception as e:
+            return {"error": str(e)}
+    elif image_path:
+        try:
+            bg.Fill.UserPicture(image_path)
+            bg.Fill.Visible = True
+        except Exception as e:
+            return {"error": str(e)}
+    return {"slide": slide_index, "background": "color" if color_hex else "image", "value": color_hex or image_path}
+
+
+def add_chart_modern(slide_index: int, chart_type: str, categories: List[str], values: List[float],
+                     series_name: str = "", title: str = "", left: float = 50, top: float = 100,
+                     width: float = 600, height: float = 350) -> Dict:
+    """Add a chart with modern styling. chart_type: bar/line/pie/column"""
+    CHART_TYPES = {"bar": 2, "line": 4, "pie": 5, "column": 1}
+    pres = _ppt.active_presentation
+    if pres is None:
+        return {"error": "No presentation open"}
+    ct = CHART_TYPES.get(chart_type, 1)
+    slide = pres.Slides.Item(slide_index)
+    shp = slide.Shapes.AddChart(ct, left, top, width, height)
+    chart = shp.Chart
+    chart.ChartData.Activate()
+    try:
+        wb = chart.ChartData.Workbook
+        ws = wb.Worksheets(1)
+        # Clear default data
+        ws.Cells.Clear()
+        # Write categories (row 1, starting col 2)
+        ws.Cells(1, 1).Value = ""
+        for i, cat in enumerate(categories):
+            ws.Cells(1, i + 2).Value = cat
+        # Write values (row 2)
+        ws.Cells(2, 1).Value = series_name or "Series 1"
+        for i, val in enumerate(values):
+            ws.Cells(2, i + 2).Value = val
+        chart.SetSourceData(ws.Range(ws.Cells(1, 1), ws.Cells(2, len(categories) + 1)))
+        if title:
+            chart.HasTitle = True
+            chart.ChartTitle.Text = title
+        # Modern styling
+        try:
+            chart.ChartArea.RoundedCorners = True
+        except Exception:
+            pass
+        try:
+            chart.HasLegend = len(values) > 1
+        except Exception:
+            pass
+    except Exception as e:
+        return {"error": str(e), "chart_added": True}
+    return {"slide": slide_index, "shape_index": slide.Shapes.Count, "chart_type": chart_type, "categories": len(categories), "values": len(values)}

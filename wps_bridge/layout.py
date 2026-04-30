@@ -48,3 +48,35 @@ def page_numbers(alignment="center", start_at=None, section_index=None, doc_inde
     ft.PageNumbers.Add(WDALIGNMENT.get(alignment, 1))
     if start_at is not None: ft.PageNumbers.StartingNumber = start_at
     return {"page_numbers": alignment, "start_at": start_at}
+
+
+# DXA conversion constants (1440 DXA = 1 inch, 567 DXA ≈ 1 cm)
+DXA_PER_INCH = 1440
+DXA_PER_CM = 567
+
+# Common page sizes in DXA
+PAGE_SIZES_DXA = {
+    "A4": {"width": 11906, "height": 16838},
+    "A3": {"width": 16838, "height": 23811},
+    "A5": {"width": 8392, "height": 11906},
+    "Letter": {"width": 12240, "height": 15840},
+    "Legal": {"width": 12240, "height": 20160},
+    "B5": {"width": 10126, "height": 14388},
+}
+
+
+def get_page_dimensions(section_index=None, doc_index=None):
+    """Get page dimensions in DXA, inches, and cm."""
+    doc = get_doc(doc_index)
+    ps = doc.Sections.Item(_sec(section_index)).PageSetup
+    w_dxa = com_property(ps, "PageWidth", 0)
+    h_dxa = com_property(ps, "PageHeight", 0)
+    return {
+        "width_dxa": w_dxa, "height_dxa": h_dxa,
+        "width_inches": round(w_dxa / DXA_PER_INCH, 2), "height_inches": round(h_dxa / DXA_PER_INCH, 2),
+        "width_cm": round(w_dxa / DXA_PER_CM, 1), "height_cm": round(h_dxa / DXA_PER_CM, 1),
+        "top_margin": com_property(ps, "TopMargin", 0), "bottom_margin": com_property(ps, "BottomMargin", 0),
+        "left_margin": com_property(ps, "LeftMargin", 0), "right_margin": com_property(ps, "RightMargin", 0),
+        "content_width_dxa": w_dxa - com_property(ps, "LeftMargin", 0) - com_property(ps, "RightMargin", 0),
+        "orientation": "portrait" if com_property(ps, "Orientation", 0) == 0 else "landscape",
+    }
