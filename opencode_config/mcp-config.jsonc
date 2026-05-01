@@ -1,0 +1,10 @@
+# MCP configuration for wps-agent (save this to ~/.config/opencode/opencode.jsonc -> mcp section)
+{
+  "wps-agent": {
+    "type": "local",
+    "command": ["E:\\Anaconda\\envs\\wps-agent\\python.exe", "E:\\AAAprojects\\自由测试\\wps-agent\\mcp_server.py"],
+    "environment": {
+      "WPS_AGENT_LLM_KEY": "<YOUR_DEEPSEEK_API_KEY>"
+    }
+  }
+}
