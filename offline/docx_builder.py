@@ -1,126 +1,164 @@
 # -*- coding: utf-8 -*-
+"""Offline Word document builder — generates professional .docx files without WPS.
+Requires: pip install python-docx
 """
-Offline Docx Builder — full read/write capabilities without WPS.
-Uses the docx_engine for XML-native document processing.
-"""
+from typing import Optional, Dict, List
 from pathlib import Path
-from typing import Dict, Any, Optional
 
-from docx_engine import (
-    parse_docx, unpack_docx, pack_docx,
-    build_document_model, serialize_document_model,
-    Document, DocumentAnalyzer, Formatter, StyleResolver,
-    DocxEngineError, ParseError, SerializeError,
-)
-
-
-class OfflineDocxBuilder:
-    """High-level offline builder for .docx files."""
-
-    def __init__(self):
-        self.document: Optional[Document] = None
-        self._source_path: Optional[str] = None
-        self._blank_template = str(Path(__file__).parents[1] / "blank_template.docx")
-
-    def load(self, docx_path: str) -> Document:
-        """Load a .docx file into the document model."""
-        self._source_path = docx_path
-        self.document = build_document_model(parse_docx(docx_path))
-        return self.document
-
-    def create(self) -> Document:
-        """Create a new empty document, using blank template as source."""
-        self.document = Document()
-        self._source_path = self._blank_template
-        return self.document
-
-    def save(self, output_path: str) -> str:
-        """Save the document model to a .docx file."""
-        if self.document is None:
-            raise SerializeError("No document loaded or created")
-        return serialize_document_model(
-            self.document,
-            output_path,
-            original_docx=self._source_path,
-        )
-
-    def analyze(self) -> Dict[str, Any]:
-        """Analyze the current document."""
-        if self.document is None:
-            return {"error": "No document loaded"}
-        analyzer = DocumentAnalyzer(self.document)
-        return {
-            "document_type": analyzer.detect_document_type(),
-            "statistics": self.document.get_statistics(),
-            "outline": analyzer.get_document_outline(),
-            "headings": self.document.get_heading_structure(),
-            "quality": analyzer.analyze_formatting_quality(),
-        }
-
-    def auto_format(self, document_type: Optional[str] = None) -> Dict[str, Any]:
-        """Apply automatic formatting."""
-        if self.document is None:
-            return {"error": "No document loaded"}
-
-        if document_type is None:
-            analyzer = DocumentAnalyzer(self.document)
-            document_type = analyzer.detect_document_type()
-
-        resolver = None
-        if self.document.styles:
-            resolver = StyleResolver()
-            resolver.styles = self.document.styles
-
-        formatter = Formatter(self.document, resolver)
-        return formatter.auto_format(document_type)
-
-    def apply_template(self, template_name: str) -> Dict[str, Any]:
-        """Apply a named template."""
-        if self.document is None:
-            return {"error": "No document loaded"}
-        resolver = None
-        if self.document.styles:
-            resolver = StyleResolver()
-            resolver.styles = self.document.styles
-        formatter = Formatter(self.document, resolver)
-        return formatter.apply_template(template_name)
-
-    def add_numbering(self) -> Dict[str, Any]:
-        """Add multi-level numbering to headings."""
-        if self.document is None:
-            return {"error": "No document loaded"}
-        resolver = None
-        if self.document.styles:
-            resolver = StyleResolver()
-            resolver.styles = self.document.styles
-        formatter = Formatter(self.document, resolver)
-        return formatter.add_multi_level_numbering()
-
-    def replace_text(self, old: str, new: str, case_sensitive: bool = True) -> int:
-        """Replace text across all runs."""
-        if self.document is None:
-            return 0
-        return self.document.replace_text(old, new, case_sensitive)
-
-    def get_text(self) -> str:
-        """Get full document text."""
-        if self.document is None:
-            return ""
-        return self.document.text
-
-    def get_statistics(self) -> Dict[str, Any]:
-        """Get document statistics."""
-        if self.document is None:
-            return {}
-        return self.document.get_statistics()
+try:
+    from docx import Document
+    from docx.shared import Pt, Inches, Cm, Emu, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+    from docx.enum.section import WD_ORIENT
+    from docx.oxml.ns import qn, nsdecls
+    from docx.oxml import parse_xml
+    HAS_DOCX = True
+except ImportError:
+    HAS_DOCX = False
 
 
-# Convenience functions
-def read_docx_model(docx_path: str) -> Document:
-    """Read a .docx file and return the Document model."""
-    return build_document_model(parse_docx(docx_path))
+ALIGN_MAP = {
+    "left": WD_ALIGN_PARAGRAPH.LEFT,
+    "center": WD_ALIGN_PARAGRAPH.CENTER,
+    "right": WD_ALIGN_PARAGRAPH.RIGHT,
+    "justify": WD_ALIGN_PARAGRAPH.JUSTIFY,
+} if HAS_DOCX else {}
 
 
-def write_docx_model(document: Document, output_path: str, original_docx: Optional[str] = None) -> str:
-    """Write a Document model to a .docx file."""
-    return serialize_document_model(document, output_path, original_docx)
+def _hex_to_rgb(hex_color: str):
+    h = hex_color.lstrip("#")
+    return RGBColor(int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+
+
+def build_docx(structure: Dict, output_path: str) -> Dict:
+    """Build a .docx from a JSON structure.
+    structure = {
+        "page": {"size": "A4", "orientation": "portrait",
+                  "top_margin_cm": 2.54, "bottom_margin_cm": 2.54,
+                  "left_margin_cm": 3.17, "right_margin_cm": 3.17},
+        "default_font": {"name": "宋体", "size_pt": 12},
+        "content": [
+            {"type": "heading1", "text": "第一章 绪论"},
+            {"type": "heading2", "text": "1.1 研究背景"},
+            {"type": "body", "text": "正文内容...", "first_line_indent": True, "line_spacing": 1.5},
+            {"type": "page_break"},
+            {"type": "table", "headers": ["列1","列2"], "rows": [["A","B"]]},
+        ]
+    }
+    """
+    if not HAS_DOCX:
+        return {"error": "python-docx not installed. Run: pip install python-docx"}
+    doc = Document()
+
+    # Page setup
+    page_cfg = structure.get("page", {})
+    section = doc.sections[0]
+    section.page_width = Cm(21.0)   # A4
+    section.page_height = Cm(29.7)
+    if page_cfg:
+        if page_cfg.get("orientation") == "landscape":
+            section.orientation = WD_ORIENT.LANDSCAPE
+            section.page_width, section.page_height = section.page_height, section.page_width
+        section.top_margin = Cm(page_cfg.get("top_margin_cm", 2.54))
+        section.bottom_margin = Cm(page_cfg.get("bottom_margin_cm", 2.54))
+        section.left_margin = Cm(page_cfg.get("left_margin_cm", 3.17))
+        section.right_margin = Cm(page_cfg.get("right_margin_cm", 3.17))
+
+    # Default font
+    df = structure.get("default_font", {})
+    style = doc.styles["Normal"]
+    style.font.name = df.get("name", "宋体")
+    style.font.size = Pt(df.get("size_pt", 12))
+    style.element.rPr.rFonts.set(qn("w:eastAsia"), df.get("name", "宋体"))
+    pf = style.paragraph_format
+    pf.space_before = Pt(0)
+    pf.space_after = Pt(0)
+
+    stats = {"paragraphs": 0, "tables": 0, "page_breaks": 0}
+    for item in structure.get("content", []):
+        item_type = item.get("type", "body")
+        text = item.get("text", "")
+
+        if item_type == "page_break":
+            doc.add_page_break()
+            stats["page_breaks"] += 1
+            continue
+
+        if item_type.startswith("table"):
+            headers = item.get("headers", [])
+            rows_data = item.get("rows", [])
+            if not rows_data and not headers:
+                continue
+            tbl = doc.add_table(rows=1 + len(rows_data), cols=len(headers) or (len(rows_data[0]) if rows_data else 1))
+            tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+            tbl.style = "Table Grid"
+            if headers:
+                for j, h in enumerate(headers):
+                    cell = tbl.rows[0].cells[j]
+                    cell.text = str(h)
+                    for run in cell.paragraphs[0].runs:
+                        run.bold = True
+            for i, row_data in enumerate(rows_data):
+                for j, val in enumerate(row_data):
+                    tbl.rows[i + 1].cells[j].text = str(val)
+            stats["tables"] += 1
+            continue
+
+        p = doc.add_paragraph()
+        if item_type in ("heading1", "heading2", "heading3"):
+            level = int(item_type[-1])
+            p.style = doc.styles[f"Heading {level}"]
+            p.add_run(text)
+        elif item_type == "body":
+            run = p.add_run(text)
+            if item.get("font"):
+                f = item["font"]
+                run.font.name = f.get("name", df.get("name", "宋体"))
+                run.font.size = Pt(f.get("size_pt", df.get("size_pt", 12)))
+                if f.get("bold"):
+                    run.bold = True
+                run.element.rPr.rFonts.set(qn("w:eastAsia"), f.get("name", df.get("name", "宋体")))
+            if item.get("first_line_indent") or item.get("first_line_indent_chars"):
+                chars = item.get("first_line_indent_chars", 2)
+                p.paragraph_format.first_line_indent = Pt(chars * (item.get("font", {}).get("size_pt", df.get("size_pt", 12))))
+            if item.get("line_spacing"):
+                p.paragraph_format.line_spacing = item["line_spacing"]
+            if item.get("alignment"):
+                p.alignment = ALIGN_MAP.get(item["alignment"], WD_ALIGN_PARAGRAPH.LEFT)
+        else:
+            run = p.add_run(text)
+        stats["paragraphs"] += 1
+
+    doc.save(output_path)
+    return {"output": output_path, "stats": stats}
+
+
+def build_cover_page(lines: List[Dict], output_path: str) -> Dict:
+    """Generate a standalone cover page docx.
+    lines = [{"text": "Title", "font_name": "黑体", "font_size_pt": 26, "bold": True, "alignment": "center", "space_before_pt": 120}, ...]
+    """
+    if not HAS_DOCX:
+        return {"error": "python-docx not installed"}
+    doc = Document()
+    section = doc.sections[0]
+    section.page_width = Cm(21.0)
+    section.page_height = Cm(29.7)
+    for ln in lines:
+        text = ln.get("text", "")
+        if not text.strip():
+            p = doc.add_paragraph()
+            p.paragraph_format.space_before = Pt(ln.get("space_before_pt", 6))
+            continue
+        p = doc.add_paragraph()
+        run = p.add_run(text)
+        font_name = ln.get("font_name", "宋体")
+        run.font.name = font_name
+        run.font.size = Pt(ln.get("font_size_pt", 14))
+        run.bold = ln.get("bold", False)
+        run.element.rPr.rFonts.set(qn("w:eastAsia"), font_name)
+        p.alignment = ALIGN_MAP.get(ln.get("alignment", "center"), WD_ALIGN_PARAGRAPH.CENTER)
+        p.paragraph_format.space_before = Pt(ln.get("space_before_pt", 0))
+        p.paragraph_format.space_after = Pt(ln.get("space_after_pt", 6))
+    doc.save(output_path)
+    return {"output": output_path, "lines": len(lines)}

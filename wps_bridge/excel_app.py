@@ -121,6 +121,40 @@ def _ensure_wb():
     return wb, None
 
 
+def wb_create() -> Dict:
+    wb = _excel.app.Workbooks.Add()
+    return {"name": wb.Name, "sheets": wb.Worksheets.Count}
+
+
+def wb_open(filepath: str) -> Dict:
+    wb = _excel.app.Workbooks.Open(filepath)
+    return {"name": wb.Name, "sheets": wb.Worksheets.Count}
+
+
+def wb_list() -> List[Dict]:
+    return _excel.list_workbooks()
+
+
+def wb_save(filepath: Optional[str] = None) -> Dict:
+    wb = _excel.active_workbook
+    if wb is None:
+        return {"error": "No workbook open"}
+    if filepath:
+        wb.SaveAs(filepath)
+    else:
+        wb.Save()
+    return {"name": wb.Name, "saved": True}
+
+
+def wb_close(save_changes: bool = False) -> Dict:
+    wb = _excel.active_workbook
+    if wb is None:
+        return {"error": "No workbook open"}
+    name = wb.Name
+    wb.Close(save_changes)
+    return {"closed": name}
+
+
 def _resolve_sheet(wb, sheet_name=None):
     if wb is None:
         return None

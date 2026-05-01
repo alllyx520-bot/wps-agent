@@ -27,37 +27,10 @@ def set_font(para_index=None, start_pos=None, end_pos=None, use_selection=False,
     doc = get_doc(doc_index)
     r = _resolve_range(doc, para_index, start_pos, end_pos, use_selection)
     f = r.Font
-    props = {}
-    for key, com_name in [
-        ("name", "Name"), ("name_far_east", "NameFarEast"),
-        ("size", "Size"), ("bold", "Bold"), ("underline", "Underline"),
-        ("color_index", "ColorIndex"), ("superscript", "Superscript"),
-        ("subscript", "Subscript"), ("strike_through", "StrikeThrough"),
-        ("spacing", "Spacing"), ("scaling", "Scaling"), ("kerning", "Kerning"),
-        ("caps", "AllCaps"), ("small_caps", "SmallCaps"),
-        ("shadow", "Shadow"), ("outline", "Outline"),
-        ("emboss", "Emboss"), ("vanish", "Hidden"),
-    ]:
-        if kwargs.get(key) is not None:
-            props[com_name] = kwargs[key]
-    if kwargs.get("italic") is not None:
-        props["Italic"] = kwargs["italic"]
-    failed = com_set_batch(f, props)
-    hilite = kwargs.get("highlight")
-    if hilite is not None:
-        try:
-            f.HighlightColorIndex = hilite
-        except Exception:
-            failed.append("HighlightColorIndex")
-    color_rgb = kwargs.get("color_rgb")
-    if color_rgb is not None:
-        try:
-            f.TextColor.RGB = color_rgb
-        except Exception:
-            try:
-                f.Color = color_rgb
-            except Exception:
-                failed.append("color_rgb")
+    italic_val = kwargs.get("italic")
+    if italic_val is None:
+        italic_val = False
+    failed = com_set_batch(f, {"Name": kwargs.get("name"), "NameFarEast": kwargs.get("name_far_east"), "Size": kwargs.get("size"), "Bold": kwargs.get("bold"), "Italic": italic_val, "Underline": kwargs.get("underline"), "ColorIndex": kwargs.get("color_index"), "Superscript": kwargs.get("superscript"), "Subscript": kwargs.get("subscript"), "StrikeThrough": kwargs.get("strike_through"), "Spacing": kwargs.get("spacing"), "Scaling": kwargs.get("scaling"), "Kerning": kwargs.get("kerning")})
     return {"updated": True, "failed": failed, "text_sample": com_property(r, "Text", "")[:50]}
 
 
@@ -213,10 +186,6 @@ def batch(operations: list, doc_index=None):
                 res = get_font(op.get("para_index"), op.get("start_pos"), op.get("end_pos"), op.get("use_selection", False), doc_index)
             elif op_type == "get_paragraph_format":
                 res = get_paragraph_format(op["para_index"], doc_index)
-            elif op_type == "get_run_font":
-                res = get_run_font(op["para_index"], op["run_index"], doc_index)
-            elif op_type == "set_run_font":
-                res = set_run_font(op["para_index"], op["run_index"], doc_index, **{k: v for k, v in op.items() if k not in ("type", "action", "para_index", "run_index")})
             elif op_type == "set_tab_stops":
                 res = set_tab_stops(op["para_index"], op.get("stops", []), doc_index)
             else:
@@ -345,145 +314,3 @@ def set_bullet_list(para_indices: List[int], bullet_char: Optional[str] = None, 
         except Exception:
             continue
     return {"bullet_applied": len(applied), "para_indices": applied}
-
-
-def get_run_font(para_index, run_index, doc_index=None):
-    doc = get_doc(doc_index)
-    valid_idx = max(para_index, 1)
-    if valid_idx > doc.Paragraphs.Count:
-        return {"error": f"Paragraph {para_index} out of range", "error_code": "PARAGRAPH_OUT_OF_RANGE"}
-    r = doc.Paragraphs.Item(valid_idx).Range
-    w = r.Words.Item(run_index)
-    f = w.Font
-    color_rgb = 0
-    try:
-        tc = com_property(f, "TextColor", None)
-        if tc is not None:
-            color_rgb = com_property(tc, "RGB", 0)
-        else:
-            color_rgb = com_property(f, "Color", 0)
-    except Exception:
-        try:
-            color_rgb = com_property(f, "Color", 0)
-        except Exception:
-            color_rgb = 0
-    return {
-        "para_index": para_index,
-        "run_index": run_index,
-        "name": com_property(f, "Name", ""),
-        "name_far_east": com_property(f, "NameFarEast", ""),
-        "size": com_property(f, "Size", 0),
-        "bold": bool(com_property(f, "Bold", 0)),
-        "italic": bool(com_property(f, "Italic", 0)),
-        "underline": com_property(f, "Underline", 0),
-        "color_index": com_property(f, "ColorIndex", 0),
-        "color_rgb": color_rgb,
-        "highlight": com_property(f, "HighlightColorIndex", 0),
-        "superscript": bool(com_property(f, "Superscript", 0)),
-        "subscript": bool(com_property(f, "Subscript", 0)),
-        "strike_through": bool(com_property(f, "StrikeThrough", 0)),
-        "spacing": com_property(f, "Spacing", 0),
-        "scaling": com_property(f, "Scaling", 100),
-        "kerning": com_property(f, "Kerning", 0),
-        "caps": bool(com_property(f, "AllCaps", 0)),
-        "small_caps": bool(com_property(f, "SmallCaps", 0)),
-        "emboss": bool(com_property(f, "Emboss", 0)),
-        "shadow": bool(com_property(f, "Shadow", 0)),
-        "outline": bool(com_property(f, "Outline", 0)),
-        "vanish": bool(com_property(f, "Hidden", 0)),
-    }
-
-
-def set_run_font(para_index, run_index, doc_index=None, **kwargs):
-    doc = get_doc(doc_index)
-    if para_index < 1:
-        para_index = 1
-    pc = doc.Paragraphs.Count
-    if para_index > pc:
-        return {"error": f"Paragraph {para_index} out of range (document has {pc} paragraphs)", "error_code": "PARAGRAPH_OUT_OF_RANGE", "para_count": pc}
-    try:
-        r = doc.Paragraphs.Item(para_index).Range
-        w = r.Words.Item(run_index)
-    except Exception as e:
-        return {"error": f"Failed to access Paragraph {para_index} Run {run_index}: {e}", "error_code": "COM_ACCESS_FAILED"}
-    f = w.Font
-    color_rgb = kwargs.get("color_rgb")
-    if color_rgb is not None:
-        try:
-            f.TextColor.RGB = color_rgb
-        except Exception:
-            try:
-                f.Color = color_rgb
-            except Exception:
-                pass
-    highlight = kwargs.get("highlight")
-    if highlight is not None:
-        try:
-            f.HighlightColorIndex = highlight
-        except Exception:
-            pass
-    props = {}
-    for key, com_name in [
-        ("name", "Name"), ("name_far_east", "NameFarEast"),
-        ("size", "Size"), ("bold", "Bold"), ("underline", "Underline"),
-        ("color_index", "ColorIndex"), ("superscript", "Superscript"),
-        ("subscript", "Subscript"), ("strike_through", "StrikeThrough"),
-        ("spacing", "Spacing"), ("scaling", "Scaling"),
-        ("kerning", "Kerning"), ("caps", "AllCaps"),
-        ("small_caps", "SmallCaps"), ("emboss", "Emboss"),
-        ("shadow", "Shadow"), ("outline", "Outline"), ("vanish", "Hidden"),
-    ]:
-        if kwargs.get(key) is not None:
-            props[com_name] = kwargs[key]
-    if kwargs.get("italic") is not None:
-        props["Italic"] = kwargs["italic"]
-    failed = com_set_batch(f, props)
-    return {"updated": True, "para_index": para_index, "run_index": run_index, "failed": failed}
-
-
-def set_text_effect(para_index: int, effect: str, color_rgb: int = 0, offset: float = 2.0, doc_index: Optional[int] = None) -> Dict:
-    """Apply text effect (shadow/outline/glow/reflection/emboss/engrave)."""
-    doc = get_doc(doc_index)
-    if para_index < 1:
-        para_index = 1
-    pc = doc.Paragraphs.Count
-    if para_index > pc:
-        return {"error": f"Paragraph {para_index} out of range", "error_code": "PARAGRAPH_OUT_OF_RANGE", "para_count": pc}
-    try:
-        rng = doc.Paragraphs.Item(para_index).Range
-        f = rng.Font
-        effect = effect.lower()
-        if effect in ("shadow", "shadowtext"):
-            com_set(f, "Shadow", True)
-            return {"effect": "shadow", "para_index": para_index, "applied": True}
-        elif effect in ("outline", "outlinetext"):
-            com_set(f, "Outline", True)
-            return {"effect": "outline", "para_index": para_index, "applied": True}
-        elif effect in ("emboss", "embosstext"):
-            com_set(f, "Emboss", True)
-            return {"effect": "emboss", "para_index": para_index, "applied": True}
-        elif effect in ("engrave", "engravetext", "imprint"):
-            com_set(f, "Engrave", True)
-            return {"effect": "engrave", "para_index": para_index, "applied": True}
-        elif effect in ("glow", "glowtext"):
-            try:
-                glow = f.Glow
-                glow.Radius = offset
-                if color_rgb:
-                    glow.Color.RGB = color_rgb
-                return {"effect": "glow", "para_index": para_index, "offset": offset, "applied": True}
-            except Exception:
-                return {"error": "Glow effect not supported by this WPS version", "error_code": "EFFECT_UNSUPPORTED"}
-        elif effect in ("reflection", "reflectiontext"):
-            try:
-                refl = f.Reflection
-                refl.Offset = offset
-                if color_rgb:
-                    refl.Color.RGB = color_rgb
-                return {"effect": "reflection", "para_index": para_index, "offset": offset, "applied": True}
-            except Exception:
-                return {"error": "Reflection effect not supported by this WPS version", "error_code": "EFFECT_UNSUPPORTED"}
-        else:
-            return {"error": f"Unknown effect: {effect}. Valid: shadow, outline, emboss, engrave, glow, reflection", "error_code": "INVALID_PARAM"}
-    except Exception as e:
-        return {"error": str(e), "error_code": "COM_ERROR"}

@@ -1,6 +1,6 @@
 # WPS AI Agent 使用教程 v2
 
-> 深度集成 WPS Office 的 AI 排版专家，18 个 MCP Tool、200+ Action。支持语义理解、手术级修改、排版自动修正。
+> 一个深度集成 WPS Office 的 AI 排版专家，精通 Word 和 Excel，通过 MCP 协议与 AI Agent 实时交互。配备 `document-author` Skill，实现类人 4-Phase 文档工作流（理解→规划→执行→验证）。
 
 ---
 
@@ -30,6 +30,44 @@ pip install -r requirements.txt
   "command": ["E:\\Anaconda\\envs\\wps-agent\\python.exe", "你的路径\\mcp_server.py"]
 }
 ```
+
+保存后重启 opencode。
+
+### 1.5 部署 opencode 智能化配置（推荐）
+
+本仓库 `opencode_config/` 目录包含让 AI Agent 像人类文档专家一样工作的配置：
+
+```
+opencode_config/
+├── AGENTS.md              # Agent 行为规则（含 document-author 自动触发）
+├── skills/                # 9 个 Skill
+│   ├── document-author/   # ★ 类人文档智能化（4-Phase 工作流）
+│   ├── docx/              # .docx 离线创建/编辑
+│   ├── xlsx/              # .xlsx 电子表格
+│   ├── pptx/              # .pptx 演示文稿
+│   └── ...                # code-review / debug / agent-creator 等
+├── commands/              # 自定义快捷命令
+└── agents/                # 自定义 Agent
+```
+
+**核心 Skill：`document-author`**
+
+这个 Skill 颠覆了传统的"逐一调用 MCP 工具"模式，让 Agent 像人类一样思考和操作文档：
+
+```
+Phase 1: 理解     → 读写文档全文+大纲+格式，构建"文档心智模型"
+Phase 2: 规划     → 自然语言输出修改计划+影响分析，再动手
+Phase 3: 执行     → 逐步操作，每步记录状态（已改了什么、还剩什么）
+Phase 4: 验证     → 重读修改区域，一致性检查，有问题立即修正
+```
+
+**部署方法**：将 `opencode_config/` 下所有文件复制到 `~/.config/opencode/`：
+
+```powershell
+robocopy opencode_config\ $env:USERPROFILE\.config\opencode\ /E
+```
+
+重启 opencode 后，所有 WPS Word 操作将自动触发 4-Phase 工作流。
 
 ---
 
@@ -257,6 +295,23 @@ pip install -r requirements.txt
 添加演讲者备注
 ```
 
+### 场景4：类人智能文档修改（document-author）
+
+启用 `document-author` skill 后，Agent 会像人类专家一样操作：
+
+```
+1. 打开需要修改的文档
+2. "把参考文献格式改成 GB/T 7714 国标"
+3. Agent 自动：
+   - Phase 1: 读取全文+大纲+格式，发现当前参考文献是字母序排列
+   - Phase 2: 输出规划："修改 ref[1]-ref[15] 为 GB/T 7714...
+                 → 注意 TOC 页码可能变化"
+   - Phase 3: 逐条调整，每步记录进度
+   - Phase 4: 重读参考文献区域，检查所有条目格式一致
+4. "修改第三章的标题格式和图注编号"
+5. Agent 发现文档风格 → 自动匹配现有标题格式，不盲套标准
+```
+
 ---
 
 ## 十三、Offline 模式（无需 WPS）
@@ -310,5 +365,43 @@ A: COM 操作是同步的，修改立即反映。若使用 Offline 模式需检�
 **Q: 中文样式名报错？**
 A: WPS 内置样式使用中文名（"标题 1"而非"Heading 1"）。"标题 2" → ✅，"Heading 2" → ❌。
 
-**Q: Offline 模式报 `[WinError 32]`？**
-A: 文件被 WPS COM 占用。请先关闭 WPS 中的文档再使用 Offline 模式操作。
+**Q: 云端文档能操作吗？**
+A: 可以，只要在 WPS 中打开了云端文档，Agent 就能完全操作。
+
+**Q: LLM 分析不工作？**
+A: 检查 `config.yaml` 中 API Key 是否正确，网络是否能访问 API 端点。
+
+**Q: 如何切换 LLM 模型？**
+A: 修改 `config.yaml` 中的 `endpoint` 和 `model`，支持所有 OpenAI 兼容 API。
+
+---
+
+## 十三、项目结构
+
+```
+wps-agent/
+├── mcp_server.py              # MCP Server 入口（10个Tool Group）
+├── config.yaml                # 配置文件
+├── wps_bridge/                # COM 桥接层
+│   ├── app.py                 # WPS Word Application
+│   ├── document.py            # 文档管理
+│   ├── content.py             # 内容读写
+│   ├── formatting.py          # 格式/样式
+│   ├── table.py               # 表格操作
+│   ├── layout.py              # 页面布局
+│   ├── search.py              # 查找替换
+│   ├── review.py              # 修订批注
+│   ├── excel_app.py           # WPS Excel Application
+│   └── utils.py               # COM 工具函数
+├── intelligence/              # AI 智能层
+│   ├── llm_client.py          # LLM API 客户端
+│   ├── layout_analyzer.py     # 排版分析器
+│   ├── format_suggester.py    # 格式建议器
+│   └── chinese_rules.py       # 中文排版规则库
+├── opencode_config/              # ★ opencode 智能化配置
+│   ├── AGENTS.md                # Agent 行为规则（自动触发 document-author）
+│   ├── skills/                  # 9个 Skill（含 document-author 4-Phase 工作流）
+│   ├── commands/                # 自定义快捷命令
+│   └── agents/                  # 自定义 Agent
+└── logs/                      # 日志
+```

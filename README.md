@@ -28,38 +28,23 @@ opencode (AI Agent)              ← 你说人话，它调工具
     ↕ MCP stdio
 mcp_server.py (18 个 Tool)       ← MCP 协议层
     ↕ Python import
-├── wps_bridge/                  ← COM 自动化层 (Online)
-│   ├── app.py                   # Word COM 单例 + 断连重连
-│   ├── content.py               # 文本读写 + Run级操作
-│   ├── formatting.py            # 字体/段落格式 + 文本特效
-│   ├── table.py                 # 表格全功能
-│   ├── layout.py                # 页面设置/页眉页脚
-│   ├── search.py / review.py    # 查找替换/审阅批注
-│   ├── document.py / docspace.py / transfer.py / migrate.py / compare.py
-│   ├── content_control.py       # Content Control
-│   ├── field_codes.py           # 域代码
-│   ├── surgical_context.py      # 手术级上下文
-│   ├── excel_app.py / ppt_app.py  # Excel/PPT COM 桥
-│   └── utils.py                 # COM 工具函数
-├── docx_engine/                 ← 离线引擎 (Offline)
-│   ├── document_model.py        # DOM: Run/Paragraph/Table/Cell
-│   ├── intelligence.py          # 文档分析/角色检测/类型识别
-│   ├── formatter.py             # 自动排版/多级编号
-│   ├── semantic_model.py        # 语义解析/关系图谱/内容分类
-│   ├── layout_model.py          # 排版分析/溢出检测
-│   ├── xml_parser.py / serializer.py  # OOXML 解析/序列化
-│   └── errors.py                # 结构化错误码
-├── offline/                     ← 离线构建器
-│   └── docx_builder.py          # OfflineDocxBuilder (build/format/analyze)
-├── intelligence/                ← AI 智能层
-│   ├── llm_client.py            # LLM API 客户端
-│   ├── chinese_rules.py         # 14 套中文排版模板
-│   ├── quality_supervisor.py    # 质量评估 + 自动修复
-│   ├── content_generator.py     # AI 内容生成
-│   ├── format_intelligence.py   # 一键全流程 (auto_enhance)
-│   └── layout_analyzer.py       # 排版分析 → LLM 增强
+wps_bridge/                  ← COM 自动化层
+├── app.py                   # Word COM 单例
+├── document.py / content.py / formatting.py / table.py
+├── layout.py / search.py / review.py
+├── docspace.py / transfer.py / migrate.py / compare.py
+├── excel_app.py / ppt_app.py / utils.py
+intelligence/                ← AI 智能层
+├── chinese_rules.py         # 12 套预设模板
+├── content_generator.py     # AI 内容生成
+├── llm_client.py            # LLM API 客户端
+├── template_manager.py      # 模板提取管理
+    └── layout_analyzer.py       # 文档分析
     ↕ COM (pywin32)
 WPS Office (Windows)
+└── opencode_config/          ← Agent 智能行为层
+    ├── AGENTS.md              # WPS Agent 专属 Agent 配置（自动触发 document-author）
+    └── skills/document-author/ # 4-Phase 类人工作流（理解→规划→执行→验证）
 ├── Kwps.Application (Word)
 ├── Ket.Application (Excel)
 └── Kwpp.Application (PPT)
@@ -177,20 +162,86 @@ pip install -r requirements.txt
 | `notice` | 通知/通告 — 仿宋正文、标准公文格式 |
 | `work_report` | 工作总结 — 层次清晰、汇报风格 |
 
----
+## 智能化文档操作：Skills + AGENTS.md 协同
 
-## 使用示例
+`opencode_config/` 目录存放 opencode AI agent 的行为配置，通过 Skill 与 AGENTS.md 的协同实现类人智能化文档操作：
 
 ```
-"把第一段改成黑体三号加粗居中"
-"用学术论文模板格式化当前文档"
-"定位到摘要段落"  ← query_by_role
-"对选中的段落使用手术级修改：黑体22号"  ← surgical
-"自动修正所有孤行"  ← fix_widow_orphan
-"分析文档排版，自动修正缺陷"  ← auto_fix_layout
-"给标题添加阴影效果"  ← set_text_effect
-"把A文档的第3-5段复制到B文档末尾"
-"根据文档大纲生成PPT"
+用户说"把参考文献格式改成国标"
+        │
+        ▼
+┌─ AGENTS.md §10.1.2 ───────────────────┐
+│ 检测到 WPS Word 操作 → 自动加载          │
+│ document-author skill                   │
+└───────────┬────────────────────────────┘
+            ▼
+┌─ document-author Skill ─────────────────┐
+│ Phase 1: 理解 → batch 读全文+大纲+格式    │
+│ Phase 2: 规划 → 输出修改计划+影响分析      │
+│ Phase 3: 执行 → 逐步操作，记录状态         │
+│ Phase 4: 验证 → 重读+一致性检查+自动修正   │
+└───────────┬────────────────────────────┘
+            ▼
+     WPS MCP 工具 (content/format/table/...)
+```
+
+**核心能力：**
+
+| 能力 | 说明 |
+|------|------|
+| **文档风格发现** | 读 20% 内容后自动推断文档自身的格式规律，不盲套标准模板 |
+| **语义角色标注** | 自动识别段落类型（封面/标题/正文/参考文献...），用语义引用而非数字索引 |
+| **一致性守护** | 每次修改后自动对比同类元素格式，不一致立即修正 |
+| **影响预判** | 操作前自动分析牵影响（目录/页码/交叉引用） |
+| **意图澄清** | 模糊指令不瞎猜，先分析候选方案再确认 |
+| **分层打磨** | Pass 1 内容正确 → Pass 2 格式统一 → Pass 3 细节到位 → Pass 4 视觉润色 |
+
+**部署方式**：将 `opencode_config/` 下文件复制到 `~/.config/opencode/` 即可。
+
+```bash
+cd wps-agent
+robocopy opencode_config\ %USERPROFILE%\.config\opencode\ /E
+```
+
+重启 opencode 后，WPS Word 操作将自动走 4-Phase 工作流。
+
+## 项目结构
+
+```
+wps-agent/
+├── mcp_server.py          # MCP 服务入口（18 个工具）
+├── config.yaml            # 配置文件
+├── requirements.txt       # Python 依赖
+├── README.md
+├── .gitignore
+├── wps_bridge/            # COM 自动化桥接层
+│   ├── app.py             # Word COM 单例（含断连重连）
+│   ├── document.py        # 文档 CRUD + 图片/书签/水印等
+│   ├── content.py         # 文本读写 + 批量操作
+│   ├── formatting.py      # 字体/段落格式 + 格式刷 + 批量
+│   ├── table.py           # 表格全功能
+│   ├── layout.py          # 页面设置/页眉页脚/页码
+│   ├── search.py          # 查找替换
+│   ├── review.py          # 修订/批注
+│   ├── docspace.py        # 统一文档空间
+│   ├── transfer.py        # 跨文档复制
+│   ├── migrate.py         # Word↔Excel 迁移 + Word→PPT
+│   ├── compare.py         # 文档对比
+│   ├── excel_app.py       # Excel 全功能 COM 桥接
+│   ├── ppt_app.py         # PPT COM 桥接
+│   └── utils.py           # COM 辅助函数
+└── intelligence/          # AI 智能层
+    ├── llm_client.py      # LLM API 客户端（支持 DeepSeek/OpenAI）
+    ├── chinese_rules.py   # 12 套中文排版预设
+    ├── template_manager.py # 模板提取/保存/加载/对比
+    ├── content_generator.py # AI 生成/总结/改写/扩写/翻译
+    ├── format_suggester.py # 格式建议
+    └── layout_analyzer.py # 文档分析 + 自然语言解析
+└── opencode_config/       # opencode AI 配置（skills / commands / agents）
+    ├── AGENTS.md           # Agent 行为规则（含 document-author 4-Phase 工作流）
+    ├── skills/             # 9 个 skill（含 document-author 文档智能化）
+    ├── commands/           # 4 个自定义命令
+    └── agents/             # 2 个自定义 agent
 ```
 
 ---
