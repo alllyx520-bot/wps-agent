@@ -96,23 +96,56 @@ def insert_image(filepath: str, width: Optional[float] = None, height: Optional[
 def add_footnote(para_index: Optional[int] = None, text: str = "",
                  doc_index: Optional[int] = None) -> Dict:
     doc = get_doc(doc_index)
-    if para_index:
-        rng = doc.Paragraphs.Item(para_index).Range
-    else:
-        rng = get_app().Selection.Range
-    note = doc.Footnotes.Add(rng, None, text)
-    return {"footnote_index": note.Index, "text": text}
+    try:
+        if para_index:
+            rng = doc.Paragraphs.Item(para_index).Range
+        else:
+            rng = get_app().Selection.Range
+        note = doc.Footnotes.Add(rng, None, text)
+        return {"footnote_index": note.Index, "text": text, "added": True}
+    except Exception as e:
+        # WPS COM footnote may fail on some document types; try alternative approach
+        try:
+            if para_index:
+                rng = doc.Paragraphs.Item(para_index).Range
+            else:
+                rng = get_app().Selection.Range
+            note = doc.Footnotes.Add(rng)
+            if text:
+                try:
+                    note.Range.Text = text
+                except Exception:
+                    pass
+            return {"footnote_index": note.Index, "text": text, "added": True}
+        except Exception as e2:
+            return {"error": str(e2), "footnote_added": False}
 
 
 def add_endnote(para_index: Optional[int] = None, text: str = "",
                 doc_index: Optional[int] = None) -> Dict:
     doc = get_doc(doc_index)
-    if para_index:
-        rng = doc.Paragraphs.Item(para_index).Range
-    else:
-        rng = get_app().Selection.Range
-    note = doc.Endnotes.Add(rng, None, text)
-    return {"endnote_index": note.Index, "text": text}
+    try:
+        if para_index:
+            rng = doc.Paragraphs.Item(para_index).Range
+        else:
+            rng = get_app().Selection.Range
+        note = doc.Endnotes.Add(rng, None, text)
+        return {"endnote_index": note.Index, "text": text, "added": True}
+    except Exception as e:
+        try:
+            if para_index:
+                rng = doc.Paragraphs.Item(para_index).Range
+            else:
+                rng = get_app().Selection.Range
+            note = doc.Endnotes.Add(rng)
+            if text:
+                try:
+                    note.Range.Text = text
+                except Exception:
+                    pass
+            return {"endnote_index": note.Index, "text": text, "added": True}
+        except Exception as e2:
+            return {"error": str(e2), "endnote_added": False}
 
 
 def list_footnotes(doc_index: Optional[int] = None) -> List[Dict]:
@@ -190,6 +223,7 @@ def add_watermark(text: str, font_size: float = 72, color: int = 15,
 def remove_watermark(doc_index: Optional[int] = None) -> Dict:
     doc = get_doc(doc_index)
     removed = 0
+    # Remove from headers
     for sec in range(1, doc.Sections.Count + 1):
         try:
             header = doc.Sections.Item(sec).Headers.Item(1)
@@ -201,6 +235,20 @@ def remove_watermark(doc_index: Optional[int] = None) -> Dict:
                     continue
         except Exception:
             continue
+    # Also remove TextEffect shapes from document body
+    try:
+        for i in range(doc.Shapes.Count, 0, -1):
+            try:
+                shp = doc.Shapes.Item(i)
+                # Only delete shape if it looks like a watermark (TextEffect / WordArt)
+                shp_type = com_property(shp, "Type", 0)
+                if shp_type == 15:  # msoTextEffect
+                    shp.Delete()
+                    removed += 1
+            except Exception:
+                continue
+    except Exception:
+        pass
     return {"removed": removed}
 
 

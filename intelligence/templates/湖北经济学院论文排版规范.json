@@ -1,0 +1,279 @@
+{
+  "name": "湖北经济学院本科毕业论文写作与排版规范",
+  "description": "全面提取自《附件2：湖北经济学院本科毕业论文写作与排版规范.doc》，含封面、目录、中英文摘要、正文、图表、参考文献等完整格式规则",
+  "doc_type": "thesis",
+  "extracted_from": "附件2：湖北经济学院本科毕业论文写作与排版规范.doc",
+  "paper": {
+    "size": "A4",
+    "width_pt": 595.3,
+    "height_pt": 841.9,
+    "sections": [
+      {
+        "name": "封面",
+        "top_margin_pt": 85.05,
+        "bottom_margin_pt": 70.9,
+        "left_margin_pt": 70.9,
+        "right_margin_pt": 70.9,
+        "orientation": "portrait",
+        "different_first_page": true
+      },
+      {
+        "name": "正文（目录/摘要/章节/参考文献）",
+        "top_margin_pt": 72,
+        "bottom_margin_pt": 72,
+        "left_margin_pt": 90,
+        "right_margin_pt": 90,
+        "orientation": "portrait",
+        "different_first_page": true
+      }
+    ],
+    "header": {
+      "text": "湖北经济学院本科毕业（设计）论文",
+      "font": "宋体",
+      "size": 10.5
+    },
+    "footer": {
+      "text": "",
+      "page_number": "center"
+    }
+  },
+  "styles": {
+    "标题 1": {
+      "font": { "name": "Times New Roman", "name_far_east": "黑体", "size_pt": 22, "bold": true },
+      "paragraph_format": {
+        "alignment": "justify",
+        "first_line_indent_pt": 0,
+        "line_spacing_rule": "multiple",
+        "line_spacing_pt": 28.9,
+        "space_before_pt": 17,
+        "space_after_pt": 16.5,
+        "outline_level": 1
+      }
+    },
+    "标题 2": {
+      "font": { "name": "Arial", "name_far_east": "黑体", "size_pt": 16, "bold": true },
+      "paragraph_format": {
+        "alignment": "justify",
+        "first_line_indent_pt": 0,
+        "line_spacing_rule": "multiple",
+        "line_spacing_pt": 20.6,
+        "space_before_pt": 13,
+        "space_after_pt": 13,
+        "outline_level": 2
+      }
+    },
+    "标题 3": {
+      "font": { "name": "Times New Roman", "name_far_east": "黑体", "size_pt": 10.5, "bold": false },
+      "paragraph_format": {
+        "alignment": "justify",
+        "first_line_indent_pt": 0,
+        "line_spacing_rule": "single",
+        "line_spacing_pt": 12,
+        "outline_level": 3
+      }
+    },
+    "正文": {
+      "font": { "name": "Times New Roman", "name_far_east": "宋体", "size_pt": 10.5, "bold": false },
+      "paragraph_format": {
+        "alignment": "justify",
+        "first_line_indent_pt": 0,
+        "line_spacing_rule": "single",
+        "line_spacing_pt": 12
+      }
+    }
+  },
+  "cover_page": {
+    "description": "封面页，单独一节，页边距(上3cm/下2.5cm/左右2.5cm)，首页不同",
+    "elements": [
+      { "name": "存档编号", "font": "黑体", "size_pt": 10.5, "bold": false, "alignment": "center", "line_spacing_rule": "1.5lines" },
+      { "name": "空行(占位)", "description": "多个空行间隔" },
+      { "name": "毕业论文（设计）", "font": "宋体", "size_pt": 42, "bold": true, "alignment": "center", "line_spacing_rule": "1.5lines" },
+      { "name": "空行", "font": "Times New Roman/宋体", "size_pt": 16 },
+      { "name": "题目：xxx", "font": "宋体", "bold": true, "alignment": "center", "line_spacing_rule": "single" },
+      { "name": "英文标题", "font": "楷体", "size_pt": 14, "alignment": "center", "line_spacing_rule": "single" },
+      { "name": "空行", "font": "Times New Roman/宋体", "size_pt": 16 },
+      { "name": "专业/院系/年级/学号/姓名/指导教师/职称", "font": "楷体", "size_pt": 16, "alignment": "left", "left_indent_pt": 63, "first_line_indent_pt": 21, "line_spacing_rule": "single", "note": "部分项(年级/姓名/指导教师)加粗" },
+      { "name": "空行", "font": "Times New Roman/宋体", "size_pt": 16 },
+      { "name": "湖北经济学院教务处 制", "font": "方正姚体", "size_pt": 16, "alignment": "center", "line_spacing_rule": "single" }
+    ]
+  },
+  "toc": {
+    "description": "目录页，单独一节",
+    "heading": {
+      "text": "目  录",
+      "font": "黑体",
+      "size_pt": 15,
+      "bold": true,
+      "alignment": "center",
+      "line_spacing_rule": "1.5lines",
+      "space_before_pt": 7.8,
+      "space_after_pt": 7.8,
+      "outline_level": 1
+    },
+    "level_1_entry": { "style": "目录 1", "font": "宋体", "size_pt": 12, "bold": true, "line_spacing_rule": "1.5lines" },
+    "level_2_entry": { "style": "目录 2", "font": "宋体", "size_pt": 12, "bold": false, "line_spacing_rule": "1.5lines" },
+    "English_entry": { "font": "Times New Roman", "size_pt": 12, "note": "ABSTRACT 等英文条目" }
+  },
+  "abstract_cn": {
+    "description": "中文摘要，位于正文节",
+    "heading": { "text": "摘  要", "font": "黑体", "size_pt": 15, "bold": true, "alignment": "center", "line_spacing_rule": "1.5lines" },
+    "body": { "font": "宋体", "size_pt": 12, "bold": false, "alignment": "justify", "line_spacing_rule": "1.5lines", "first_line_indent_pt": 24 },
+    "keywords": { "heading": "关键词：", "font": "宋体", "size_pt": 12, "bold": true, "alignment": "left", "separator": "；" }
+  },
+  "abstract_en": {
+    "description": "英文摘要",
+    "heading": { "text": "ABSTRACT", "font": "Times New Roman", "size_pt": 15, "bold": true, "alignment": "center", "line_spacing_rule": "multiple", "line_spacing_pt": 28.9, "space_before_pt": 17, "space_after_pt": 16.5, "outline_level": 1 },
+    "body": { "font": "Times New Roman", "size_pt": 12, "alignment": "justify", "line_spacing_rule": "1.5lines", "first_line_indent_pt": 24 },
+    "keywords": { "heading": "Keywords:", "font": "Times New Roman/宋体", "size_pt": 12, "bold": true, "separator": ";", "note": "关键字英文用Times New Roman，中文关键词用宋体" }
+  },
+  "body_text": {
+    "description": "正文部分，位于正文节。中文宋体12pt(小四)，英文/数字 Times New Roman 12pt",
+    "heading_level_1": {
+      "example": "一、绪论",
+      "font": "黑体",
+      "size_pt": 15,
+      "bold": true,
+      "alignment": "justify",
+      "line_spacing_rule": "1.5lines",
+      "first_line_indent_pt": 24
+    },
+    "heading_level_2": {
+      "example": "（一）研究背景",
+      "font": "黑体",
+      "size_pt": 14,
+      "bold": true,
+      "alignment": "justify",
+      "line_spacing_rule": "1.5lines",
+      "first_line_indent_pt": 24
+    },
+    "heading_level_3": {
+      "example": "1、",
+      "font": "宋体",
+      "size_pt": 14,
+      "bold": true,
+      "alignment": "left",
+      "line_spacing_rule": "1.5lines",
+      "left_indent_pt": 21,
+      "first_line_indent_pt": 7
+    },
+    "heading_level_4": {
+      "example": "1）",
+      "font": "宋体",
+      "size_pt": 14,
+      "bold": false,
+      "alignment": "left",
+      "line_spacing_rule": "1.5lines",
+      "left_indent_pt": 21,
+      "first_line_indent_pt": 7
+    },
+    "heading_level_5": {
+      "example": "（1）",
+      "font": "宋体",
+      "size_pt": 14,
+      "bold": false,
+      "alignment": "left",
+      "line_spacing_rule": "1.5lines",
+      "left_indent_pt": 21,
+      "first_line_indent_pt": 7
+    },
+    "paragraph": {
+      "font": "宋体",
+      "size_pt": 12,
+      "bold": false,
+      "alignment": "justify",
+      "line_spacing_rule": "multiple",
+      "line_spacing_pt": 20.4,
+      "first_line_indent_pt": 24,
+      "note": "英文/数字使用 Times New Roman 12pt。文中引用用上标方括号[1][2]，不使用括号夹注"
+    }
+  },
+  "figures": {
+    "description": "图标题及注意事项",
+    "caption": {
+      "font": "华文仿宋",
+      "size_pt": 10.5,
+      "bold": true,
+      "alignment": "center",
+      "line_spacing_rule": "1.5lines",
+      "note": "图标题在图的正下方居中，格式为「图1 [空格]标题」，比正文小一号(五号)"
+    },
+    "rules": [
+      "图标题位于图正下方，居中(Ctrl+E)",
+      "图标题字体：华文仿宋 五号(10.5pt)，加粗",
+      "编号「图1」后有一个空格再接标题文字"
+    ]
+  },
+  "tables": {
+    "description": "三线表格式：顶线和底线为双横线，无竖线",
+    "caption": {
+      "font": "华文仿宋",
+      "size_pt": 10.5,
+      "bold": true,
+      "alignment": "center",
+      "note": "表标题在表格正上方居中，格式为「表1 [空格]标题」"
+    },
+    "content": {
+      "font_cn": "宋体",
+      "font_en_num": "Times New Roman",
+      "size_pt": 10.5,
+      "note": "表中中文字体宋体五号，英文/数字 Times New Roman 五号(比正文小一号)"
+    },
+    "source_note": {
+      "font": "宋体",
+      "size_pt": 9,
+      "note": "资料来源说明使用宋体小五(比表格内容小一号)，如「资料来源：网络数据整理所得」"
+    },
+    "rules": [
+      "表标题位于表格正上方，居中(Ctrl+E)",
+      "表标题字体：华文仿宋五号(10.5pt)，加粗",
+      "编号「表1」后有一个空格再接标题文字",
+      "表中文字宋体五号，英文/数字 Times New Roman 五号",
+      "资料来源说明宋体小五",
+      "三线表：顶线和底线为双横线，无竖线"
+    ]
+  },
+  "references": {
+    "description": "参考文献格式规范",
+    "heading": { "text": "参考文献", "font": "黑体", "size_pt": 15, "bold": true, "alignment": "justify", "line_spacing_rule": "1.5lines", "first_line_indent_pt": 24 },
+    "entry": {
+      "font_cn": "宋体",
+      "font_en_num": "Times New Roman",
+      "size_pt": 12,
+      "note": "中文宋体小四(12pt)，英文/数字 Times New Roman 小四(12pt)"
+    },
+    "types": {
+      "M": "专著", "C": "论文集", "N": "报纸文章", "J": "期刊文章", "D": "学位论文", "R": "报告", "Z": "其他"
+    },
+    "formats": [
+      { "type": "期刊J", "format": "[序号] 作者.篇名[J].刊名，出版年份，卷号(期号)：起止页码." },
+      { "type": "专著M", "format": "[序号] 作者.书名[M].出版地：出版社，出版年份：起止页码." },
+      { "type": "报纸N", "format": "[序号] 作者.篇名[N].报纸名，出版日期(版次)." },
+      { "type": "论文集C", "format": "[序号] 作者.篇名[C].出版地：出版者，出版年份：起始页码." },
+      { "type": "学位论文D", "format": "[序号] 作者.篇名[D].出版地：保存者，出版年份：起始页码." },
+      { "type": "报告R", "format": "[序号] 作者.篇名[R].出版地：出版者，出版年份：起始页码." },
+      { "type": "条例Z", "format": "[序号] 颁布单位.条例名称[Z].发布日期" },
+      { "type": "译著M", "format": "[序号] 原著作者.书名[M].译者，译.出版地：出版社，出版年份：起止页码." }
+    ],
+    "english_author_rule": "英文作者标注：姓在前、名在后，姓与名间逗号隔开，姓词首字母大写其余不大写，名用词首大写字母表示加缩写圆点。如 Malcolm Richard Cowley → Cowley, M.R."
+  },
+  "notes": {
+    "description": "注释使用圈码①、②、③等标识，对正文特定内容进一步解释或补充说明"
+  },
+  "end_matter": {
+    "acknowledgements": { "text": "致  谢", "font": "黑体", "size_pt": 15, "bold": true, "alignment": "justify", "line_spacing_rule": "1.5lines", "first_line_indent_pt": 24 },
+    "conclusion": { "text": "结束语", "font": "黑体", "size_pt": 15, "bold": true, "alignment": "justify", "line_spacing_rule": "1.5lines", "first_line_indent_pt": 24 }
+  },
+  "summary": {
+    "lang_cn": "中文: 宋体",
+    "lang_en_num": "英文/数字: Times New Roman",
+    "body_size": "正文: 小四(12pt)",
+    "heading_1_size": "一级标题: 黑体 小三(15pt) 加粗",
+    "heading_2_size": "二级标题: 黑体 四号(14pt) 加粗",
+    "line_spacing": "正文行距: 固定值20.4磅 ≈ 1.7倍行距",
+    "first_line_indent": "首行缩进: 24pt ≈ 2个中文字符",
+    "table_fig_size": "图表内容: 五号(10.5pt) 比正文小一号",
+    "citation_format": "文中引用: 方括号上标 [1][2]",
+    "page_number": "页码: 页脚居中",
+    "three_line_table": "表格: 三线表，顶线底线双横，无竖线"
+  }
+}

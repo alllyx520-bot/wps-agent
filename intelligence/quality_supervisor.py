@@ -40,6 +40,21 @@ def evaluate(doc_index: Optional[int] = None) -> Dict:
     issues.extend(order_issues)
     score -= len(order_issues) * 5
 
+    # 6. Check widow/orphan headings
+    widow_issues = _check_widow_orphan(doc)
+    issues.extend(widow_issues)
+    score -= len(widow_issues) * 5
+
+    # 7. Check paragraph spacing consistency
+    spacing_issues = _check_spacing_consistency(doc)
+    issues.extend(spacing_issues)
+    score -= len(spacing_issues) * 3
+
+    # 8. Check font consistency
+    font_issues = _check_font_consistency(doc)
+    issues.extend(font_issues)
+    score -= len(font_issues) * 3
+
     fixed = sum(1 for i in issues if i.get("fixed"))
     score = max(0, score)
 
@@ -182,6 +197,138 @@ def _check_ordering(doc) -> List[Dict]:
 
     except Exception as e:
         issues.append({"issue": f"顺序检查异常: {e}", "fixed": False})
+    return issues
+
+
+def _check_widow_orphan(doc) -> List[Dict]:
+    """Detect widows (lonely last line) and orphans (lonely heading at bottom).
+    Works in COM mode by checking heading proximity to subsequent content."""
+    issues = []
+    try:
+        para_count = doc.Paragraphs.Count
+        if para_count < 3:
+            return issues
+
+        for i in range(1, para_count):
+            p = doc.Paragraphs.Item(i)
+            level = com_property(p.Format, "OutlineLevel", 10)
+            text = com_property(p.Range, "Text", "").strip()
+            is_heading = 1 <= level <= 9
+
+            if is_heading:
+                # Check if heading is followed by very little content
+                following_text = ""
+                for j in range(i + 1, min(i + 5, para_count + 1)):
+                    try:
+                        next_level = com_property(doc.Paragraphs.Item(j).Format, "OutlineLevel", 10)
+                        if 1 <= next_level <= level:
+                            break
+                        t = com_property(doc.Paragraphs.Item(j).Range, "Text", "").strip()
+                        following_text += t
+                    except Exception:
+                        break
+
+                # Heading with no body content → orphan
+                if len(following_text) < 10:
+                    issues.append({
+                        "issue": f"标题后有实质性内容",
+                        "fixed": False,
+                        "suggestion": f"第{i}段'{text[:30]}'后正文内容过少({len(following_text)}字)，可能为孤行标题",
+                    })
+
+            # Check single-line body paragraphs at position near "page boundaries"
+            if not is_heading and len(text) < 25 and i > 1 and i < para_count - 1:
+                prev_empty = not com_property(doc.Paragraphs.Item(i - 1).Range, "Text", "").strip()
+                next_empty = not com_property(doc.Paragraphs.Item(i + 1).Range, "Text", "").strip()
+                if prev_empty and next_empty:
+                    issues.append({
+                        "issue": f"孤立短段落在两段空行之间",
+                        "fixed": False,
+                        "suggestion": f"第{i}段是孤立短段落，考虑删除或合并",
+                    })
+
+        # Check table cross-page break risk
+        for ti in range(1, doc.Tables.Count + 1):
+            tbl = doc.Tables.Item(ti)
+            rows = tbl.Rows.Count
+            if rows > 30:
+                issues.append({
+                    "issue": f"表格{ti}行数({rows})较多可能跨页断裂",
+                    "fixed": False,
+                    "suggestion": "设置表头重复或拆分表格",
+                })
+
+    except Exception as e:
+        issues.append({"issue": f"孤行检查异常: {e}", "fixed": False})
+    return issues
+
+
+def _check_spacing_consistency(doc) -> List[Dict]:
+    """Check paragraph spacing consistency across the document."""
+    issues = []
+    try:
+        spaces_before = []
+        spaces_after = []
+        for i in range(1, min(doc.Paragraphs.Count + 1, 200)):
+            try:
+                pf = doc.Paragraphs.Item(i).Format
+                sb = com_property(pf, "SpaceBefore", 0)
+                sa = com_property(pf, "SpaceAfter", 0)
+                text = com_property(doc.Paragraphs.Item(i).Range, "Text", "").strip()
+                if text:
+                    spaces_before.append(sb)
+                    spaces_after.append(sa)
+            except Exception:
+                pass
+
+        if len(spaces_before) > 5:
+            from statistics import mean, stdev
+            try:
+                avg_sb = mean(spaces_before)
+                std_sb = stdev(spaces_before) if len(spaces_before) > 1 else 0
+                if std_sb > 12:
+                    issues.append({
+                        "issue": f"段前间距不一致(标准差={std_sb:.1f}pt)",
+                        "fixed": False,
+                        "suggestion": "统一段前间距",
+                    })
+            except Exception:
+                pass
+
+    except Exception as e:
+        issues.append({"issue": f"间距检查异常: {e}", "fixed": False})
+    return issues
+
+
+def _check_font_consistency(doc) -> List[Dict]:
+    """Check font consistency across body text paragraphs."""
+    issues = []
+    try:
+        fonts = {}
+        for i in range(1, min(doc.Paragraphs.Count + 1, 200)):
+            try:
+                p = doc.Paragraphs.Item(i)
+                level = com_property(p.Format, "OutlineLevel", 10)
+                if 1 <= level <= 9:
+                    continue
+                f = p.Range.Font
+                name = com_property(f, "NameFarEast", "") or com_property(f, "Name", "")
+                size = com_property(f, "Size", 0)
+                if name and size > 0:
+                    key = (name, size)
+                    fonts[key] = fonts.get(key, 0) + 1
+            except Exception:
+                pass
+
+        if len(fonts) > 3:
+            issues.append({
+                "issue": f"正文字体不统一(发现{len(fonts)}种字体/字号组合)",
+                "fixed": False,
+                "suggestion": "全选正文统一为宋体小四",
+            })
+
+    except Exception as e:
+        issues.append({"issue": f"字体检查异常: {e}", "fixed": False})
     return issues
 
 

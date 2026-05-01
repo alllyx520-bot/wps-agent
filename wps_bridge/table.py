@@ -102,8 +102,48 @@ def alternate_rows(table_index, color1="FFFFFF", color2="F2F2F2", doc_index=None
         for c in range(1, tbl.Columns.Count + 1):
             try:
                 hex_color = color2 if r % 2 == 0 else color1
-                rgb = int(hex_color, 16)
-                tbl.Cell(r, c).Shading.BackgroundPatternColor = rgb
+                # RGB in BGR format for COM: R + G*256 + B*65536
+                r_val = int(hex_color[0:2], 16)
+                g_val = int(hex_color[2:4], 16)
+                b_val = int(hex_color[4:6], 16)
+                rgb_long = r_val + g_val * 256 + b_val * 65536
+                tbl.Cell(r, c).Shading.BackgroundPatternColor = rgb_long
             except Exception:
                 pass
     return {"table": table_index, "alternate_rows": True}
+
+
+def set_cell_shading(table_index, row, col, bg_color, doc_index=None):
+    """Set cell background color. bg_color: 6-char hex string like 'D9E8F7' or integer RGB."""
+    cell = get_doc(doc_index).Tables.Item(table_index).Cell(row, col)
+    try:
+        if isinstance(bg_color, str):
+            bg_color = int(bg_color, 16)
+        cell.Shading.BackgroundPatternColor = bg_color
+    except Exception:
+        try:
+            cell.Shading.BackgroundPatternColorIndex = bg_color
+        except Exception:
+            return {"error": "Failed to set cell shading", "table": table_index, "row": row, "col": col}
+    return {"table": table_index, "row": row, "col": col, "shading": True}
+
+
+def table_dimensions(table_index, doc_index=None):
+    """Get table dimensions in DXA (twips) and inches."""
+    tbl = get_doc(doc_index).Tables.Item(table_index)
+    try:
+        width_dxa = com_property(tbl, "PreferredWidth", 0)
+        col_widths = []
+        for c in range(1, tbl.Columns.Count + 1):
+            col_widths.append(round(com_property(tbl.Columns.Item(c), "Width", 0), 1))
+        return {
+            "table": table_index,
+            "rows": tbl.Rows.Count,
+            "columns": tbl.Columns.Count,
+            "width_dxa": width_dxa,
+            "width_inches": round(width_dxa / 1440, 2) if width_dxa else 0,
+            "column_widths_dxa": col_widths,
+            "column_widths_inches": [round(w / 1440, 2) for w in col_widths],
+        }
+    except Exception as e:
+        return {"error": str(e), "table": table_index}

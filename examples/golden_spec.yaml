@@ -1,0 +1,62 @@
+# This file lists the expected semantic and format properties
+# for each golden sample in examples/. Used by regression tests.
+
+golden_files:
+  thesis:
+    file: thesis_sample.docx
+    description: "Standard Chinese university thesis"
+    expected:
+      semantic_roles:
+        - cover_title
+        - abstract_label
+        - abstract_content
+        - keywords_label
+        - chapter_title
+        - body
+        - reference_section_header
+        - reference_item
+      format:
+        title_alignment: center
+        body_alignment: justify
+      layout:
+        min_pages: 3
+        paper_size: A4
+
+  report:
+    file: report_sample.docx
+    description: "Corporate business report"
+    expected:
+      semantic_roles:
+        - cover_title
+        - heading_1
+        - body
+      format:
+        body_alignment: justify
+
+  resume:
+    file: resume_sample.docx
+    description: "Professional resume"
+    expected:
+      semantic_roles:
+        - cover_title
+        - body
+      format:
+        body_alignment: left
+
+  contract:
+    file: contract_sample.docx
+    description: "Legal service agreement"
+    expected:
+      semantic_roles:
+        - cover_title
+        - heading_1
+        - body
+      doc_type: contract
+
+  letter:
+    file: letter_sample.docx
+    description: "Business correspondence"
+    expected:
+      doc_type: letter
+      semantic_roles:
+        - body

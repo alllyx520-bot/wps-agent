@@ -19,10 +19,14 @@ class ExcelApplication:
                 cls._app = None
         co_init()
         cls._visible = visible
-        try:
-            cls._app = win32com.client.GetObject(None, "Ket.Application")
-        except Exception:
-            cls._app = win32com.client.Dispatch("Ket.Application")
+        for progid in ("Ket.Application", "Excel.Application", "ET.Application"):
+            try:
+                cls._app = win32com.client.GetObject(None, progid)
+                break
+            except Exception:
+                continue
+        if cls._app is None:
+            raise RuntimeError("Excel/WPS Spreadsheet is not running. Please open WPS Excel first.")
         com_set(cls._app, "Visible", visible)
         return cls._app
 
@@ -115,43 +119,6 @@ def _ensure_wb():
     if wb is None:
         return None, {"error": "No workbook open"}
     return wb, None
-
-
-# ====== Excel Bridge Functions ======
-
-
-def wb_create() -> Dict:
-    wb = _excel.app.Workbooks.Add()
-    return {"name": wb.Name, "sheets": wb.Worksheets.Count}
-
-
-def wb_open(filepath: str) -> Dict:
-    wb = _excel.app.Workbooks.Open(filepath)
-    return {"name": wb.Name, "sheets": wb.Worksheets.Count}
-
-
-def wb_list() -> List[Dict]:
-    return _excel.list_workbooks()
-
-
-def wb_save(filepath: Optional[str] = None) -> Dict:
-    wb = _excel.active_workbook
-    if wb is None:
-        return {"error": "No workbook open"}
-    if filepath:
-        wb.SaveAs(filepath)
-    else:
-        wb.Save()
-    return {"name": wb.Name, "saved": True}
-
-
-def wb_close(save_changes: bool = False) -> Dict:
-    wb = _excel.active_workbook
-    if wb is None:
-        return {"error": "No workbook open"}
-    name = wb.Name
-    wb.Close(save_changes)
-    return {"closed": name}
 
 
 def _resolve_sheet(wb, sheet_name=None):
@@ -448,3 +415,150 @@ def get_used_range(sheet_name: Optional[str] = None) -> Dict:
         "rows": com_property(used.Rows, "Count", 0),
         "cols": com_property(used.Columns, "Count", 0),
     }
+
+
+def insert_rows(row: int, count: int = 1, sheet_name: Optional[str] = None) -> Dict:
+    wb, err = _ensure_wb()
+    if err: return err
+    ws = wb.Worksheets(sheet_name) if sheet_name else _excel.active_sheet
+    for _ in range(count):
+        ws.Rows(row).Insert()
+    return {"inserted": count, "at_row": row}
+
+
+def delete_rows(row: int, count: int = 1, sheet_name: Optional[str] = None) -> Dict:
+    wb, err = _ensure_wb()
+    if err: return err
+    ws = wb.Worksheets(sheet_name) if sheet_name else _excel.active_sheet
+    for _ in range(count):
+        ws.Rows(row).Delete()
+    return {"deleted": count, "from_row": row}
+
+
+def add_cell_comment(cell_ref: str, text: str, sheet_name: Optional[str] = None) -> Dict:
+    wb, err = _ensure_wb()
+    if err: return err
+    ws = wb.Worksheets(sheet_name) if sheet_name else _excel.active_sheet
+    rng = ws.Range(cell_ref)
+    rng.AddComment(text)
+    return {"cell": cell_ref, "comment": text}
+
+
+def import_csv(filepath: str, delimiter: str = ",", has_header: bool = True, sheet_name: Optional[str] = None) -> Dict:
+    import csv
+    wb, err = _ensure_wb()
+    if err: return err
+    ws = wb.Worksheets(sheet_name) if sheet_name else _excel.active_sheet
+    with open(filepath, "r", encoding="utf-8-sig") as f:
+        reader = csv.reader(f, delimiter=delimiter)
+        rows = list(reader)
+    if not rows:
+        return {"error": "CSV file is empty"}
+    start_row = _find_next_empty_row(ws)
+    for i, row_data in enumerate(rows):
+        for j, val in enumerate(row_data):
+            ws.Cells(start_row + i, j + 1).Value = val
+    col_letter = chr(64 + len(rows[0])) if len(rows[0]) <= 26 else "Z"
+    end_ref = f"{col_letter}{start_row + len(rows) - 1}"
+    return {"imported_from": filepath, "rows": len(rows), "range": f"A{start_row}:{end_ref}"}
+
+
+def export_csv(filepath: str, start: str, end: str, delimiter: str = ",", sheet_name: Optional[str] = None) -> Dict:
+    import csv
+    data = range_read(start, end, sheet_name)
+    if isinstance(data, dict) and "error" in data:
+        return data
+    rows_data = data.get("data", [])
+    with open(filepath, "w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.writer(f, delimiter=delimiter)
+        for row in rows_data:
+            writer.writerow(row if isinstance(row, (list, tuple)) else [row])
+    return {"exported_to": filepath, "rows": len(rows_data)}
+
+
+def _find_next_empty_row(ws) -> int:
+    try:
+        used = ws.UsedRange
+        rows = used.Rows.Count
+        return rows + 1
+    except Exception:
+        return 1
+
+
+def validate_formulas(sheet_name: Optional[str] = None) -> Dict:
+    ERRORS = ["#REF!", "#DIV/0!", "#VALUE!", "#N/A", "#NAME?", "#NULL!", "#NUM!"]
+    wb, err = _ensure_wb()
+    if err: return err
+    ws = wb.Worksheets(sheet_name) if sheet_name else _excel.active_sheet
+    total_formulas = 0
+    errors_found = {}
+    try:
+        used = ws.UsedRange
+        for row in range(1, used.Rows.Count + 1):
+            for col in range(1, used.Columns.Count + 1):
+                try:
+                    cell = used.Cells(row, col)
+                    formula = com_property(cell, "Formula", "")
+                    text = str(com_property(cell, "Text", ""))
+                    if formula and formula.startswith("="):
+                        total_formulas += 1
+                    for err in ERRORS:
+                        if err in text:
+                            addr = cell.Address.replace("$", "")
+                            if err not in errors_found:
+                                errors_found[err] = {"count": 0, "locations": []}
+                            errors_found[err]["count"] += 1
+                            errors_found[err]["locations"].append(addr)
+                            break
+                except Exception:
+                    continue
+    except Exception as e:
+        return {"error": str(e)}
+    status = "errors_found" if errors_found else "success"
+    return {"status": status, "total_errors": sum(v["count"] for v in errors_found.values()), "total_formulas": total_formulas, "error_summary": errors_found if errors_found else None}
+
+
+def recalc_formulas() -> Dict:
+    wb, err = _ensure_wb()
+    if err: return err
+    try:
+        wb.Application.Calculate()
+        return {"recalculated": True}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def apply_financial_colors(sheet_name: Optional[str] = None) -> Dict:
+    """Apply financial model color conventions to the worksheet.
+    Blue=hardcoded inputs, Black=formulas, Green=internal refs, Red=external refs."""
+    wb, err = _ensure_wb()
+    if err: return err
+    ws = wb.Worksheets(sheet_name) if sheet_name else _excel.active_sheet
+    stats = {"hardcoded": 0, "formula": 0, "internal_ref": 0, "external_ref": 0}
+    try:
+        used = ws.UsedRange
+        for row in range(1, used.Rows.Count + 1):
+            for col in range(1, used.Columns.Count + 1):
+                try:
+                    cell = used.Cells(row, col)
+                    formula = str(com_property(cell, "Formula", ""))
+                    if formula.startswith("="):
+                        if ".xls" in formula.lower():
+                            cell.Font.Color = 0xFF0000  # Red: external
+                            stats["external_ref"] += 1
+                        elif "!" in formula:
+                            cell.Font.Color = 0x008000  # Green: internal
+                            stats["internal_ref"] += 1
+                        else:
+                            cell.Font.Color = 0x000000  # Black: local formula
+                            stats["formula"] += 1
+                    else:
+                        val = com_property(cell, "Value", None)
+                        if val is not None and val != "":
+                            cell.Font.Color = 0x0000FF  # Blue: hardcoded
+                            stats["hardcoded"] += 1
+                except Exception:
+                    continue
+    except Exception as e:
+        return {"error": str(e)}
+    return {"financial_colors_applied": True, "stats": stats}

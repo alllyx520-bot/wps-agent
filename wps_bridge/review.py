@@ -25,14 +25,26 @@ def comments_list(doc_index=None):
 
 def comment_add(text, para_index=None, range_start=None, range_end=None, doc_index=None):
     doc = get_doc(doc_index)
-    if para_index is not None:
-        r = doc.Paragraphs.Item(para_index).Range
-    elif range_start is not None and range_end is not None:
-        r = doc.Range(range_start, range_end)
-    else:
-        r = get_app().Selection.Range
-    doc.Comments.Add(r, text)
-    return {"comment_added": text[:60]}
+    try:
+        if para_index is not None:
+            r = doc.Paragraphs.Item(para_index).Range
+        elif range_start is not None and range_end is not None:
+            r = doc.Range(range_start, range_end)
+        else:
+            r = get_app().Selection.Range
+        doc.Comments.Add(r, text)
+        return {"comment_added": text[:60], "added": True}
+    except Exception as e:
+        # WPS COM Comment.Add may fail if Track Changes is off or doc is protected
+        # Try enabling track changes first then adding comment
+        try:
+            was_tracking = doc.TrackRevisions
+            doc.Comments.Add(doc.Paragraphs.Item(para_index if para_index else 1).Range, text)
+            if not was_tracking:
+                doc.TrackRevisions = was_tracking
+            return {"comment_added": text[:60], "added": True}
+        except Exception as e2:
+            return {"error": str(e2), "comment_added": False}
 
 
 def revisions_list(doc_index=None):
