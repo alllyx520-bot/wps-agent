@@ -292,40 +292,69 @@ def insert_text(text: str, position: str = "end", para_index: Optional[int] = No
         lines = lines[1:]
 
     if position == "end":
-        rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+        para_count = 0
+        for line in lines:
+            if not line.strip():
+                continue
+            rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+            rng.InsertParagraphAfter()
+            new_para = doc.Paragraphs.Item(doc.Paragraphs.Count)
+            new_para.Range.Text = line
+            para_count += 1
+        return {"inserted": True, "paragraphs_created": para_count, "position": position}
     elif para_index is not None and position == "before":
         pi = max(para_index, 1)
         if pi > doc.Paragraphs.Count:
             return {"error": f"Paragraph {para_index} out of range (document has {doc.Paragraphs.Count} paragraphs)", "error_code": "PARAGRAPH_OUT_OF_RANGE"}
-        rng = doc.Paragraphs.Item(pi).Range.Duplicate
-        rng.Collapse(0)
+        para_count = 0
+        for line in reversed(lines):
+            if not line.strip():
+                continue
+            rng = doc.Paragraphs.Item(pi).Range.Duplicate
+            rng.Collapse(0)
+            rng.InsertParagraph()
+            new_para = doc.Paragraphs.Item(pi)
+            new_para.Range.Text = line
+            para_count += 1
+        return {"inserted": True, "paragraphs_created": para_count, "position": position}
     elif para_index is not None and position == "after":
         pi = max(para_index, 1)
         if pi > doc.Paragraphs.Count:
             return {"error": f"Paragraph {para_index} out of range (document has {doc.Paragraphs.Count} paragraphs)", "error_code": "PARAGRAPH_OUT_OF_RANGE"}
-        rng = doc.Paragraphs.Item(pi).Range.Duplicate
-        rng.Collapse(1)
+        para_count = 0
+        for line in lines:
+            if not line.strip():
+                continue
+            rng = doc.Paragraphs.Item(pi).Range.Duplicate
+            rng.Collapse(1)
+            rng.InsertParagraphAfter()
+            new_index = min(pi + 1, doc.Paragraphs.Count)
+            new_para = doc.Paragraphs.Item(new_index)
+            new_para.Range.Text = line
+            para_count += 1
+            pi = new_index
+        return {"inserted": True, "paragraphs_created": para_count, "position": position}
     else:
         rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
-
-    para_count = 0
-    for i, line in enumerate(lines):
-        if i == 0 and not line.strip():
-            continue
-        if i > 0:
-            rng.InsertParagraphAfter()
-            rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
-        if line.strip():
-            rng.InsertAfter(line.strip())
-        para_count += 1
-
-    return {"inserted": True, "paragraphs_created": para_count, "position": position}
+        para_count = 0
+        for i, line in enumerate(lines):
+            if i == 0 and not line.strip():
+                continue
+            if i > 0:
+                rng.InsertParagraphAfter()
+                rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+            if line.strip():
+                rng.InsertAfter(line.strip())
+            para_count += 1
+        return {"inserted": True, "paragraphs_created": para_count, "position": position}
 
 
 def delete_range(start_pos: int, end_pos: int = None, doc_index: Optional[int] = None) -> Dict:
     doc = get_doc(doc_index)
-    if end_pos is None or end_pos <= 0:
+    if end_pos is None:
         end_pos = doc.Content.End
+    if end_pos <= 0 or end_pos <= start_pos:
+        return {"deleted": False, "warning": "delete_range: zero-width or invalid range, nothing deleted"}
     r = doc.Range(start_pos, end_pos)
     r.Delete()
     return {"deleted": True}

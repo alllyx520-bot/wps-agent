@@ -881,6 +881,8 @@ def _handle_content(action: str, args: dict, mode: str) -> dict:
 
             if end_pos is None:
                 doc.paragraphs.clear()
+            elif end_pos <= 0 or end_pos <= start_pos:
+                pass  # zero-width or invalid range, nothing deleted
             else:
                 flat_text = ""
                 para_starts = []
@@ -1080,7 +1082,11 @@ def _handle_content_com(action: str, args: dict) -> dict:
         from wps_bridge.content import rollback
         return rollback(args.get("doc_index"))
     elif action == "delete_range":
-        end = args.get("end_pos", doc.Content.End)
+        end = args.get("end_pos")
+        if end is None:
+            end = doc.Content.End
+        if args["start_pos"] >= end:
+            return {"deleted": False, "warning": "delete_range: zero-width or invalid range, nothing deleted"}
         doc.Range(args["start_pos"], end).Delete()
         return {"deleted": True}
     elif action == "replace_range":
@@ -2110,10 +2116,13 @@ def _handle_offline_docx(action: str, args: dict) -> dict:
 
     if action == "build":
         structure = args.get("structure", {})
-        if not structure or not structure.get("paragraphs"):
+        if not structure:
+            return {"error": "build action requires 'structure' object", "error_code": "MISSING_PARAM"}
+        paragraphs = structure.get("paragraphs") or structure.get("pages")
+        if not paragraphs:
             return {"error": "build action requires structure.paragraphs array. Each para: {text, font_name?, font_size?, bold?, alignment?, space_before?, space_after?, first_line_indent?, line_spacing?}", "error_code": "MISSING_PARAM"}
         builder.create()
-        for pdata in structure["paragraphs"]:
+        for pdata in paragraphs:
             text = pdata.get("text", "")
             para = Paragraph()
             para.alignment = pdata.get("alignment") or "left"
