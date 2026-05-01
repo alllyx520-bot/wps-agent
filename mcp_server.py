@@ -138,67 +138,7 @@ async def list_tools():
         # ─── document ───
         Tool(name="document", description="Document management. Actions: info/list/open/create/save/close/activate/export_pdf/insert_image/doc_properties/set_doc_properties/health_check",
              inputSchema={"type": "object", "properties": {
-                 "action": {"type": "string", "description": "Which operation: info (get doc properties), list (list all open docs), open (open file), create (new doc), save, close, activate (switch active doc), export_pdf, insert_image (insert picture), doc_properties (read metadata), set_doc_properties (set author/title)"},
-                 "doc_index": {"type": "integer", "description": "Document index from list (1-based, optional, defaults to active)"},
-                 "filepath": {"type": "string", "description": "File path for open/save/export_pdf/insert_image"},
-                 "save_changes": {"type": "boolean", "description": "Whether to save before closing"},
-                 "output_path": {"type": "string", "description": "Output path for PDF export"},
-                 "width": {"type": "number", "description": "Image width in points"},
-                 "height": {"type": "number", "description": "Image height in points"},
-                 "position": {"type": "string", "description": "Insert position: end, or paragraph index"},
-                 "author": {"type": "string", "description": "Document author"},
-                 "title": {"type": "string", "description": "Document title"},
-                 "subject": {"type": "string", "description": "Document subject"},
-             }, "required": ["action"]}),
-
-        # --- content ---
-        Tool(name="content", description="Read and write WPS Word document text. Use when user asks to: read/view/show document text, get paragraph content, check selection, see document outline/structure, insert/delete/replace text, read shapes/drawings/textboxes. IMPORTANT: Use batch action to read multiple items in ONE call (e.g. batch with types paragraph+outline). For cover pages, use create_cover (single call creates and formats all lines). Actions: full_text/paragraph/paragraphs/selection/range/outline/shapes/insert_text/delete_range/replace_range/batch/create_cover",
-             inputSchema={"type": "object", "properties": {
-                 "action": {"type": "string", "description": "full_text (get entire doc), paragraph (get one by index), paragraphs (get range), selection (current cursor), range (by start/end position), outline (heading structure), shapes (read all shapes/drawings/textboxes with text content), insert_text, delete_range, replace_range, batch (read multiple items at once), create_cover (single-call cover page, pass lines array of {text, font_name, font_size, bold, alignment, space_before, space_after...})"},
-                 "para_index": {"type": "integer", "description": "Paragraph number (1-based)"},
-                 "start": {"type": "integer", "description": "Start paragraph index for paragraphs action"},
-                 "count": {"type": "integer", "description": "How many paragraphs to return"},
-                 "start_pos": {"type": "integer", "description": "Character start position for range/delete/replace"},
-                 "end_pos": {"type": "integer", "description": "Character end position for range/delete/replace (optional for delete_range, defaults to doc end)"},
-                 "text": {"type": "string", "description": "Text to insert"},
-                 "new_text": {"type": "string", "description": "Replacement text"},
-                 "include_inlines": {"type": "boolean", "description": "For shapes: whether to include inline shapes (default true)"},
-                 "position": {"type": "string", "description": "Where to insert: end (end of doc), before (before para_index), after (after para_index)"},
-                 "clear_existing": {"type": "boolean", "description": "For create_cover: whether to clear existing content first (default true)"},
-                 "lines": {"type": "array", "items": {"type": "object", "properties": {
-                     "text": {"type": "string", "description": "Line text content"},
-                     "font_name": {"type": "string", "description": "Font: 黑体, 宋体, 微软雅黑, etc."},
-                     "font_size": {"type": "number", "description": "Font size in points (26=一号, 22=二号, 16=三号, 14=四号)"},
-                     "bold": {"type": "boolean"}, "italic": {"type": "boolean"},
-                     "alignment": {"type": "string", "description": "left/center/right/justify"},
-                     "space_before": {"type": "number", "description": "Space before paragraph in points"},
-                     "space_after": {"type": "number", "description": "Space after paragraph in points"},
-                     "line_spacing_rule": {"type": "string", "description": "single/1.5lines/double/exactly/multiple"},
-                     "line_spacing": {"type": "number"}, "first_line_indent": {"type": "number"},
-                 }}, "description": "Array of line specs for create_cover"},
-                 "doc_index": {"type": "integer", "description": "Document index (optional, defaults to active)"},
-             }, "required": ["action"]}),
-
-        # --- format ---
-        Tool(name="format", description="Get or set font and paragraph formatting in WPS Word. Use when user asks to: change font/size/bold/italic/color, modify paragraph alignment/indentation/line spacing, apply styles, clear formatting, use format painter, add/remove watermark, add hyperlinks, set tab stops, create bullet lists. IMPORTANT: Use batch action to modify/read multiple paragraphs in ONE call. Supports Chinese font names: 黑体, 宋体, 仿宋, 楷体, 微软雅黑. Alignment: left/center/right/justify. Line spacing: single/1.5lines/double/exactly/multiple. Actions: get_font/set_font/get_paragraph_format/set_paragraph_format/apply_style/clear_formatting/copy_format/batch/add_watermark/remove_watermark/add_hyperlink/set_tab_stops/set_bullet_list",
-             inputSchema={"type": "object", "properties": {
-                 "action": {"type": "string", "description": "get_font (read font), set_font (modify font), get_paragraph_format (read paragraph), set_paragraph_format (modify paragraph), apply_style (apply named style), clear_formatting (reset), copy_format (format painter from source to targets), batch (execute multiple operations at once), add_watermark (text watermark), remove_watermark (delete all watermarks), add_hyperlink (insert clickable link), set_tab_stops (configure paragraph tab stops), set_bullet_list (apply bullet list formatting)"},
-                 "para_index": {"type": "integer", "description": "Paragraph number to operate on (1-based)"},
-                 "use_selection": {"type": "boolean", "description": "If true, operate on current selection instead of para_index"},
-                 "source_para_index": {"type": "integer", "description": "Source paragraph for copy_format"},
-                 "target_para_indices": {"type": "array", "items": {"type": "integer"}, "description": "Target paragraphs for copy_format"},
-                 "style_name": {"type": "string", "description": "Style name e.g. 标题 1, 正文"},
-                 "name": {"type": "string", "description": "Font name: 黑体, 宋体, 仿宋, 楷体, 微软雅黑, Calibri, Arial, Times New Roman"}, "name_far_east": {"type": "string", "description": "East Asian font name"}, "size": {"type": "number", "description": "Font size in points: 22=二号 16=三号 14=四号 12=小四 10.5=五号"},
-                 "bold": {"type": "boolean", "description": "Bold: true/false"}, "italic": {"type": "boolean", "description": "Italic: true/false"}, "underline": {"type": "integer", "description": "Underline: 0=none 1=single 7=wave"},
-                 "color_index": {"type": "integer", "description": "Color: 1=black 2=blue 3=cyan 4=green 6=red"}, "superscript": {"type": "boolean"}, "subscript": {"type": "boolean"},
-                 "strike_through": {"type": "boolean"}, "spacing": {"type": "number", "description": "Character spacing in points"}, "scaling": {"type": "integer", "description": "Character scaling percentage"},
-                 "kerning": {"type": "number", "description": "Kerning in points"},
-                 "alignment": {"type": "string", "description": "Text alignment: left, center, right, justify"}, "first_line_indent": {"type": "number", "description": "First line indent in points (28pts ≈ 2 Chinese chars at 14pt)"},
-                 "left_indent": {"type": "number"}, "right_indent": {"type": "number"},
-                 "line_spacing_rule": {"type": "string", "description": "Line spacing rule: single, 1.5lines, double, exactly, multiple"}, "line_spacing": {"type": "number", "description": "Line spacing value"},
-                 "space_before": {"type": "number", "description": "Space before paragraph in points"}, "space_after": {"type": "number", "description": "Space after paragraph in points"},
-                 "outline_level": {"type": "integer", "description": "Outline level: 1-9 for headings, 10 for body text"},
-                 "widow_control": {"type": "boolean"}, "keep_with_next": {"type": "boolean"},
+                 "action": {"type": "string"},
                  "doc_index": {"type": "integer"},
                  "filepath": {"type": "string"},
                  "save_changes": {"type": "boolean"},
@@ -264,8 +204,8 @@ async def list_tools():
                  "mode": {"type": "string"},
              }, "required": ["action"]}),
 
-        # --- table ---
-        Tool(name="table", description="Create and manipulate Word tables. Use when user asks to: insert/delete tables, fill table cells, format tables with headers/borders/colors, merge cells, adjust column widths, apply alternating row colors, set cell shading, get table dimensions. Table index is 1-based. IMPORTANT: Use batch_read to read multiple tables in ONE call. Actions: count/info/read/create/delete/set_cell_text/format_cell/set_header/format_borders/merge_cells/auto_fit/set_column_width/alternate_rows/set_cell_shading/table_dimensions/batch_read",
+        # ─── style ───
+        Tool(name="style", description="Manage document styles. Actions: list/get/create/modify",
              inputSchema={"type": "object", "properties": {
                  "action": {"type": "string"}, "name": {"type": "string"},
                  "base_style": {"type": "string"}, "font_name": {"type": "string"},
@@ -303,8 +243,8 @@ async def list_tools():
                  "level": {"type": "integer", "minimum": 0}, "doc_index": {"type": "integer"},
              }, "required": ["action"]}),
 
-        # --- layout ---
-        Tool(name="layout", description="Configure WPS Word page layout. Use when user asks to: change paper size (A4), adjust margins, switch portrait/landscape, add section breaks, set columns, edit headers/footers, add page numbers, get page dimensions. Actions: page_setup/section_info/add_section_break/columns/header_footer/page_numbers/page_dimensions",
+        # ─── layout ───
+        Tool(name="layout", description="Page layout. Actions: page_setup/section_info/add_section_break/columns/header_footer/page_numbers/page_dimensions/page_break/image_wrap/page_border/line_numbers/fix_widow_orphan/auto_fix_layout",
              inputSchema={"type": "object", "properties": {
                  "action": {"type": "string"}, "section_index": {"type": "integer", "minimum": 0},
                  "page_width": {"type": "number"}, "page_height": {"type": "number"},
@@ -376,8 +316,8 @@ async def list_tools():
                  "doc_id_b": {"type": "string"},
              }, "required": ["action", "doc_id_a", "doc_id_b"]}),
 
-        # --- ai_format ---
-        Tool(name="ai_format", description="AI-powered intelligent formatting for WPS Word. Use when user asks to: analyze document formatting, suggest improvements, apply professional templates, auto-apply formatting from natural language, generate table of contents, add multi-level heading numbers, validate formatting quality, generate/summarize/rewrite/expand/translate content, or run quality supervision to auto-fix layout issues. Also supports design suggestions (palettes, typography, anti-patterns). Actions: analyze/suggest/apply_template/reformat/auto_toc/auto_numbering/validate/generate_content/summarize_document/rewrite_paragraph/expand_section/translate_section/supervise/suggest_design",
+        # ─── ai_format ───
+        Tool(name="ai_format", description="AI-powered intelligent formatting. Actions: analyze/suggest/apply_template/reformat/auto_toc/auto_numbering/validate/generate_content/summarize_document/rewrite_paragraph/expand_section/translate_section/supervise/health_check/auto_fix/detect_type/detect_role/batch_detect_roles/auto_enhance",
              inputSchema={"type": "object", "properties": {
                  "action": {"type": "string"}, "template_name": {"type": "string"},
                  "instructions": {"type": "string"}, "doc_index": {"type": "integer"},
@@ -463,85 +403,11 @@ async def list_tools():
                  "filepath": {"type": "string"},
              }, "required": ["action"]}),
 
-        # --- presentation ---
-        Tool(name="presentation", description="Create and manipulate WPS Presentations (PPT). Use when user asks to: create/open/save PPT, add slides, set titles/body text, insert images/tables, format text, add speaker notes, add shapes, reorder slides, set slide backgrounds, add charts, or export slides as images. Actions: create/open/list/save/close/slide_count/slide_info/add_slide/delete_slide/set_title/set_body/add_textbox/format_text/insert_image/insert_table/fill_cell/apply_theme/add_notes/add_shape/reorder_slides/set_slide_background/add_chart_modern",
+        # ─── operation_log ───
+        Tool(name="operation_log", description="MCP operation audit log. Actions: summary/recent/errors/replay_last/clear/dump",
              inputSchema={"type": "object", "properties": {
-                 "action": {"type": "string", "description": "create (new presentation)/open (file)/list (all open)/save/close/slide_count/slide_info/add_slide/delete_slide/set_title/set_body/add_textbox/format_text/insert_image/insert_table/fill_cell/apply_theme/add_notes"},
-                 "filepath": {"type": "string", "description": "Path to .pptx file"},
-                 "slide_index": {"type": "integer", "description": "Slide number (1-based)"},
-                 "text": {"type": "string", "description": "Text content"},
-                 "left": {"type": "integer", "description": "Left position in points"},
-                 "top": {"type": "integer", "description": "Top position in points"},
-                 "width": {"type": "integer", "description": "Width in points"},
-                 "height": {"type": "integer", "description": "Height in points"},
-                 "shape_index": {"type": "integer", "description": "Shape number on slide"},
-                 "font_name": {"type": "string", "description": "Font name: 黑体, 宋体, etc."},
-                 "font_size": {"type": "number", "description": "Font size in points"},
-                 "bold": {"type": "boolean"},
-                 "color": {"type": "integer", "description": "Color index"},
-                 "image_path": {"type": "string", "description": "Path to image file"},
-                 "rows": {"type": "integer", "description": "Number of rows for table"},
-                 "cols": {"type": "integer", "description": "Number of columns for table"},
-                 "row": {"type": "integer", "description": "Row number (1-based) for fill_cell"},
-                 "col": {"type": "integer", "description": "Column number (1-based) for fill_cell"},
-                 "table_index": {"type": "integer", "description": "Shape index of the table"},
-                 "theme_name": {"type": "string", "description": "Path to theme/template file (.potx)"},
-                 "layout_index": {"type": "integer", "description": "Layout index for add_slide (default 1=title)"},
-             }, "required": ["action"]}),
-
-        # --- excel ---
-        Tool(name="excel", description="Create and manipulate WPS Excel spreadsheets. Use when user asks to: create/open/save Excel workbooks, switch/add/rename sheets, read/write cell values, write tabular data, set formulas (=SUM etc.), format cells (font/color/borders), adjust column widths, merge cells, create charts, sort data, filter, conditional format, freeze panes, insert/delete rows, add cell comments, import/export CSV, validate formulas. Actions: create/open/list/save/close/sheet_list/sheet_activate/sheet_add/sheet_copy/sheet_delete/sheet_move/cell_read/cell_write/range_read/range_write/font_set/interior_set/borders_set/column_width/auto_fit/merge_cells/formula_set/chart_add/chart_set_source/chart_set_title/sort/auto_filter/remove_filter/conditional_format/freeze_panes/get_used_range/insert_rows/delete_rows/add_cell_comment/import_csv/export_csv/validate_formulas/recalc_formulas",
-             inputSchema={"type": "object", "properties": {
-                 "action": {"type": "string", "description": "create (new workbook)/open (file)/list (all workbooks)/save/close/sheet_list/sheet_activate/sheet_add/sheet_copy/sheet_delete/sheet_move/cell_read (single cell)/cell_write (single cell)/range_read (A1:D10)/range_write (write 2D array to range)/font_set (format cell font)/interior_set (cell background color)/borders_set (add borders)/column_width/auto_fit/merge_cells/formula_set (e.g. =SUM(C2:C5))/chart_add/chart_set_source/chart_set_title/sort/auto_filter/remove_filter/conditional_format/freeze_panes/get_used_range"},
-                 "filepath": {"type": "string", "description": "Path to .xlsx file"},
-                 "cell_ref": {"type": "string", "description": "Cell reference like A1, B5, or range like A1:D1 for formatting"},
-                 "value": {"type": "string", "description": "Value to write (number or text)"},
-                 "start": {"type": "string", "description": "Top-left cell e.g. A1 for range operations"},
-                 "end": {"type": "string", "description": "Bottom-right cell e.g. D10 for range operations"},
-                 "data": {"type": "array", "description": "2D array of data [[row1],[row2],...]"},
-                 "sheet_name": {"type": "string", "description": "Worksheet name (optional, uses active sheet)"},
-                 "name": {"type": "string", "description": "Sheet name for sheet_add/sheet_activate"},
-                 "font_name": {"type": "string", "description": "Font name e.g. 黑体, 宋体"}, "font_size": {"type": "number", "description": "Font size in points"},
-                 "bold": {"type": "boolean"}, "italic": {"type": "boolean"},
-                 "color": {"type": "integer", "description": "Color index: 1=black 2=white 3=red 5=blue 6=yellow 15=gray"}, "style": {"type": "integer", "description": "Border line style: 1=continuous"},
-                 "width": {"type": "number", "description": "Column width"}, "col": {"type": "string", "description": "Column letter e.g. A, B, C"},
-                 "formula": {"type": "string", "description": "Excel formula e.g. =SUM(C2:C5), =AVERAGE(B2:B10)"},
-                 "chart_type": {"type": "integer", "description": "Chart type code"}, "left": {"type": "integer"}, "top": {"type": "integer"},
-                 "chart_width": {"type": "integer"}, "chart_height": {"type": "integer"},
-                 "save_changes": {"type": "boolean", "description": "Whether to save before closing"},
-             }, "required": ["action"]}),
-
-        # --- offline_docx ---
-        Tool(name="offline_docx", description="Generate and validate Word .docx files offline (no WPS required). Use when WPS is not available or user wants programmatic document builder. Actions: build (create .docx from JSON structure), build_cover (generate standalone cover page), validate (check XML structure issues)",
-             inputSchema={"type": "object", "properties": {
-                 "action": {"type": "string", "description": "build (full docx from structure), build_cover (cover page only), validate (check XML issues)"},
-                 "structure": {"type": "object", "description": "Document structure JSON for build action"},
-                 "lines": {"type": "array", "items": {"type": "object"}, "description": "Cover page line specs for build_cover"},
-                 "filepath": {"type": "string", "description": "Input file path for validate"},
-                 "auto_fix": {"type": "boolean", "description": "Attempt auto-repair (validate action)"},
-                 "output_path": {"type": "string", "description": "Output .docx file path"},
-             }, "required": ["action"]}),
-
-        # --- offline_xlsx ---
-        Tool(name="offline_xlsx", description="Analyze, create and validate Excel .xlsx files offline (no WPS required). Use when WPS is not available or need pandas data analysis. Actions: build (create .xlsx from JSON), analyze (pandas analysis of existing file), convert_csv (CSV to XLSX), validate_formulas (scan for errors with openpyxl), recalc_and_verify (LibreOffice recalc + error scan), apply_financial_colors",
-             inputSchema={"type": "object", "properties": {
-                 "action": {"type": "string", "description": "build/analyze/convert_csv/validate_formulas/recalc_and_verify/apply_financial_colors"},
-                 "structure": {"type": "object", "description": "Spreadsheet structure JSON for build action"},
-                 "filepath": {"type": "string", "description": "Input file path for analyze/convert_csv/validate_formulas/recalc_and_verify"},
-                 "output_path": {"type": "string", "description": "Output file path"},
-                 "csv_path": {"type": "string"}, "delimiter": {"type": "string", "description": "CSV delimiter (default comma)"},
-                 "timeout": {"type": "integer", "description": "Timeout seconds for recalc_and_verify (default 60)"},
-             }, "required": ["action"]}),
-
-        # --- offline_pptx ---
-        Tool(name="offline_pptx", description="Create, analyze and export PPTX presentations offline (no WPS required). Use when WPS is not available or need programmatic slide creation. Actions: build (create .pptx from JSON structure), extract_text (read text from existing pptx), export_slides (convert to JPEG slide images via LibreOffice)",
-             inputSchema={"type": "object", "properties": {
-                 "action": {"type": "string", "description": "build (create pptx from structure), extract_text (read text from pptx), export_slides (render slides as JPEG)"},
-                 "structure": {"type": "object", "description": "Presentation structure JSON for build action"},
-                 "filepath": {"type": "string", "description": "Input file path for extract_text/export_slides"},
-                 "output_path": {"type": "string", "description": "Output .pptx file path for build"},
-                 "output_prefix": {"type": "string", "description": "Filename prefix for exported slide images (default 'slide')"},
-                 "dpi": {"type": "integer", "description": "Image DPI for export_slides (default 150)"},
+                 "action": {"type": "string"}, "count": {"type": "integer"},
+                 "filepath": {"type": "string"},
              }, "required": ["action"]}),
     ]
 
@@ -578,121 +444,17 @@ async def call_tool(name: str, arguments: dict):
         if name == "document":
             result = _handle_document(action, arguments)
         elif name == "content":
-            if action == "full_text":
-                result = {"text": content.full_text(doc_index)}
-            elif action == "paragraph":
-                result = content.paragraph(arguments["para_index"], doc_index)
-            elif action == "paragraphs":
-                result = content.paragraphs(arguments.get("start", 1), arguments.get("count", 10), doc_index)
-            elif action == "selection":
-                result = content.selection_info(doc_index)
-            elif action == "range":
-                result = content.range_text(arguments["start_pos"], arguments["end_pos"], doc_index)
-            elif action == "outline":
-                result = content.outline(doc_index)
-            elif action == "insert_text":
-                result = content.insert_text(arguments["text"], arguments.get("position", "end"), arguments.get("para_index"), doc_index)
-            elif action == "delete_range":
-                result = content.delete_range(arguments["start_pos"], arguments.get("end_pos"), doc_index)
-            elif action == "replace_range":
-                result = content.replace_range(arguments["start_pos"], arguments["end_pos"], arguments["new_text"], doc_index)
-            elif action == "create_cover":
-                result = content.create_cover(arguments["lines"], arguments.get("clear_existing", True), doc_index)
-            elif action == "batch":
-                result = content.batch(arguments["items"], doc_index)
-            elif action == "shapes":
-                result = content.shapes(arguments.get("include_inlines", True), doc_index)
-            else:
-                result = {"error": f"Unknown content action: {action}"}
-
+            result = _handle_content(action, arguments, mode)
         elif name == "format":
-            if action == "get_font":
-                result = formatting.get_font(arguments.get("para_index"), arguments.get("start_pos"), arguments.get("end_pos"), arguments.get("use_selection", False), doc_index)
-            elif action == "set_font":
-                result = formatting.set_font(doc_index=doc_index, **{k: v for k, v in arguments.items() if k not in ("action", "doc_index")})
-            elif action == "get_paragraph_format":
-                result = formatting.get_paragraph_format(arguments["para_index"], doc_index)
-            elif action == "set_paragraph_format":
-                result = formatting.set_paragraph_format(doc_index=doc_index, **{k: v for k, v in arguments.items() if k not in ("action", "doc_index")})
-            elif action == "apply_style":
-                result = formatting.apply_style(arguments["style_name"], arguments.get("para_index"), arguments.get("use_selection", False), doc_index)
-            elif action == "clear_formatting":
-                result = formatting.clear_formatting(arguments.get("para_index"), arguments.get("use_selection", False), doc_index)
-            elif action == "copy_format":
-                result = formatting.copy_format(arguments["source_para_index"], arguments["target_para_indices"], doc_index)
-            elif action == "batch":
-                result = formatting.batch(arguments["operations"], doc_index)
-            elif action == "add_watermark":
-                result = document.add_watermark(arguments["text"], arguments.get("font_size", 72), arguments.get("color", 15), doc_index)
-            elif action == "remove_watermark":
-                result = document.remove_watermark(doc_index)
-            elif action == "add_hyperlink":
-                result = formatting.add_hyperlink(arguments["text"], arguments["url"], arguments.get("para_index"), doc_index)
-            elif action == "set_tab_stops":
-                result = formatting.set_tab_stops(arguments["para_index"], arguments.get("stops", []), doc_index)
-            elif action == "set_bullet_list":
-                result = formatting.set_bullet_list(arguments["para_indices"], arguments.get("bullet_char"), doc_index)
-            else:
-                result = {"error": f"Unknown format action: {action}"}
-
+            result = _handle_format(action, arguments, mode)
         elif name == "style":
             result = _handle_style(action, arguments)
         elif name == "table":
-            if action == "count":
-                result = {"count": table.table_count(doc_index)}
-            elif action == "info":
-                result = table.table_info(arguments["table_index"], doc_index)
-            elif action == "read":
-                result = table.table_read(arguments["table_index"], doc_index)
-            elif action == "create":
-                result = table.table_create(arguments["rows"], arguments["cols"], arguments.get("position"), doc_index)
-            elif action == "delete":
-                result = table.table_delete(arguments["table_index"], doc_index)
-            elif action == "set_cell_text":
-                result = table.set_cell_text(arguments["table_index"], arguments["row"], arguments["col"], arguments["text"], doc_index)
-            elif action == "format_cell":
-                result = table.format_cell(doc_index=doc_index, **{k: v for k, v in arguments.items() if k not in ("action", "doc_index")})
-            elif action == "set_header":
-                result = table.set_header(arguments["table_index"], arguments.get("row_count", 1), doc_index)
-            elif action == "format_borders":
-                result = table.format_borders(arguments["table_index"], arguments.get("inside"), arguments.get("outside"), doc_index)
-            elif action == "merge_cells":
-                result = table.merge_cells(arguments["table_index"], arguments["start_row"], arguments["start_col"], arguments["end_row"], arguments["end_col"], doc_index)
-            elif action == "auto_fit":
-                result = table.auto_fit(arguments["table_index"], arguments.get("behavior", 2), doc_index)
-            elif action == "set_column_width":
-                result = table.set_column_width(arguments["table_index"], arguments["col"], arguments["width"], doc_index)
-            elif action == "alternate_rows":
-                result = table.alternate_rows(arguments["table_index"], arguments.get("color1", "FFFFFF"), arguments.get("color2", "F2F2F2"), doc_index)
-            elif action == "batch_read":
-                result = table.batch_read(arguments["table_indices"], doc_index)
-            elif action == "set_cell_shading":
-                result = table.set_cell_shading(arguments["table_index"], arguments["row"], arguments["col"], arguments["bg_color"], doc_index)
-            elif action == "table_dimensions":
-                result = table.table_dimensions(arguments["table_index"], doc_index)
-            else:
-                result = {"error": f"Unknown table action: {action}"}
-
+            result = _handle_table(action, arguments)
         elif name == "search":
             result = _handle_search(action, arguments)
         elif name == "layout":
-            if action == "page_setup":
-                result = layout.page_setup(doc_index=doc_index, **{k: v for k, v in arguments.items() if k not in ("action", "doc_index")})
-            elif action == "section_info":
-                result = layout.section_info(arguments.get("section_index"), doc_index)
-            elif action == "add_section_break":
-                result = layout.add_section_break(arguments["para_index"], arguments.get("break_type", "next_page"), doc_index)
-            elif action == "columns":
-                result = layout.set_columns(arguments["count"], arguments.get("section_index"), doc_index)
-            elif action == "header_footer":
-                result = layout.header_footer(arguments.get("section_index"), arguments.get("header_type", "header"), arguments.get("text"), doc_index)
-            elif action == "page_numbers":
-                result = layout.page_numbers(arguments.get("alignment", "center"), arguments.get("start_at"), arguments.get("section_index"), doc_index)
-            elif action == "page_dimensions":
-                result = layout.get_page_dimensions(arguments.get("section_index"), doc_index)
-            else:
-                result = {"error": f"Unknown layout action: {action}"}
-
+            result = _handle_layout(action, arguments)
         elif name == "review":
             result = _handle_review(action, arguments)
         elif name == "reference":
@@ -706,52 +468,21 @@ async def call_tool(name: str, arguments: dict):
         elif name == "compare":
             result = _handle_compare(action, arguments)
         elif name == "ai_format":
-            if action == "analyze":
-                result = _ai_analyze(doc_index, arguments.get("template"))
-            elif action == "suggest":
-                result = _ai_suggest(doc_index)
-            elif action == "apply_template":
-                result = _ai_apply_template(arguments["template_name"], doc_index)
-            elif action == "reformat":
-                result = _ai_reformat(arguments.get("instructions", ""), doc_index)
-            elif action == "auto_toc":
-                result = _ai_auto_toc(doc_index)
-            elif action == "auto_numbering":
-                result = _ai_auto_numbering(doc_index)
-            elif action == "validate":
-                result = _ai_validate(doc_index)
-            elif action == "generate_content":
-                result = _ai_generate_content(arguments.get("instructions", ""), arguments.get("position", "end"), arguments.get("para_index"), doc_index)
-            elif action == "summarize_document":
-                result = _ai_summarize(doc_index)
-            elif action == "rewrite_paragraph":
-                result = _ai_rewrite(arguments["para_index"], arguments.get("instructions", ""), doc_index)
-            elif action == "expand_section":
-                result = _ai_expand(arguments["para_index"], doc_index)
-            elif action == "translate_section":
-                result = _ai_translate(arguments["para_index"], arguments.get("target_lang", "en"), doc_index)
-            elif action == "supervise":
-                result = _ai_supervise(doc_index)
-            elif action == "suggest_design":
-                result = _ai_suggest_design(arguments.get("topic", ""), arguments.get("category", ""))
-            else:
-                result = {"error": f"Unknown ai_format action: {action}"}
-
-        elif name == "excel":
-            result = _handle_excel(action, arguments)
-
+            result = _handle_ai_format(action, arguments)
         elif name == "presentation":
             result = _handle_presentation(action, arguments)
-
+        elif name == "excel":
+            result = _handle_excel(action, arguments)
         elif name == "offline_docx":
             result = _handle_offline_docx(action, arguments)
-
-        elif name == "offline_xlsx":
-            result = _handle_offline_xlsx(action, arguments)
-
-        elif name == "offline_pptx":
-            result = _handle_offline_pptx(action, arguments)
-
+        elif name == "content_control":
+            result = _handle_content_control(action, arguments)
+        elif name == "field_codes":
+            result = _handle_field_codes(action, arguments)
+        elif name == "surgical":
+            result = _handle_surgical(action, arguments)
+        elif name == "operation_log":
+            result = _handle_operation_log(action, arguments)
         else:
             result = {"error": f"Unknown tool: {name}"}
 
@@ -835,441 +566,836 @@ def _handle_document(action: str, args: dict) -> dict:
             "subject": com_property(props, "Subject", ""),
             "page_count": com_property(props, "Number of Pages", 0),
         }
+    elif action == "set_doc_properties":
+        doc = get_doc(args.get("doc_index"))
+        props = doc.BuiltInDocumentProperties
+        if args.get("author"):
+            com_set(props, "Author", args["author"])
+        if args.get("title"):
+            com_set(props, "Title", args["title"])
+        if args.get("subject"):
+            com_set(props, "Subject", args["subject"])
+        return {"updated": True}
+    elif action == "insert_image":
+        doc = get_doc(args.get("doc_index"))
+        pos = args.get("position", "end")
+        if pos == "end":
+            rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+        else:
+            rng = doc.Paragraphs.Item(int(pos)).Range
+        shape = doc.InlineShapes.AddPicture(args["filepath"], 0, 1, rng.Start)
+        if args.get("width"):
+            com_set(shape, "Width", args["width"])
+        if args.get("height"):
+            com_set(shape, "Height", args["height"])
+        return {"inserted": True, "image": args["filepath"]}
+    elif action == "health_check":
+        health = com_health_check()
+        return {"health": health, "cache": {"entries": len(_doc_cache), "snapshots": len(_snapshot_cache)}}
+    return {"error": f"Unknown document action: {action}"}
 
-    def _execute_batch(actions_list):
-        executed = []
-        failed = []
-        for act in actions_list:
-            tool_name = act.get("tool", "format")
-            act_args = {k: v for k, v in act.items() if k not in ("tool", "reason")}
-            # Defensive: strip italic from LLM-generated actions (Chinese docs never use italic)
-            if act_args.get("italic") is True:
-                act_args["italic"] = False
-            try:
-                if tool_name == "format":
-                    if act_args.get("action") == "set_font":
-                        res = formatting.set_font(doc_index=doc_index, **act_args)
-                    elif act_args.get("action") == "set_paragraph_format":
-                        res = formatting.set_paragraph_format(doc_index=doc_index, **act_args)
-                    elif act_args.get("action") == "apply_style":
-                        res = formatting.apply_style(act_args.get("style_name", ""), act_args.get("para_index"), doc_index=doc_index)
-                    elif act_args.get("action") == "batch":
-                        res = formatting.batch(act_args.get("operations", []), doc_index)
-                    else:
-                        res = {"error": f"Unknown action: {act_args.get('action')}"}
-                elif tool_name == "layout":
-                    res = layout.page_setup(doc_index=doc_index, **act_args)
-                elif tool_name == "style":
-                    res = formatting.create_style(doc_index=doc_index, **act_args)
-                elif tool_name == "table":
-                    res = table.table_create(act_args.get("rows", 2), act_args.get("cols", 2), "end", doc_index)
-                elif tool_name == "content":
-                    if act_args.get("action") == "insert_text":
-                        res = content.insert_text(act_args.get("text", ""), act_args.get("position", "end"), act_args.get("para_index"), doc_index)
-                    else:
-                        res = {"error": f"Unknown content action: {act_args.get('action')}"}
-                else:
-                    res = {"error": f"Unknown tool: {tool_name}"}
-                if isinstance(res, dict) and "error" in res:
-                    failed.append({"action": act, "error": str(res.get("error", res))[:200]})
-                else:
-                    executed.append(act.get("reason", str(act)[:80]))
-            except Exception as e:
-                failed.append({"action": act, "error": str(e)[:200]})
-        return executed, failed
 
-    executed, failed = _execute_batch(actions)
-
-    # Self-healing: retry failed actions with LLM correction (up to 2 attempts)
-    for retry in range(2):
-        if not failed:
-            break
-        from intelligence.llm_client import chat
-        heal_prompt = f"""You are a WPS COM API expert. Some formatting actions failed. Analyze the errors and suggest corrected actions.
-
-Original instructions: {instructions}
-
-Failed actions:
-{json.dumps(failed[:10], ensure_ascii=False)}
-
-Available tools: format(set_font/set_paragraph_format/apply_style/batch), layout(page_setup), style(create), table(create), content(insert_text)
-
-Output ONLY a JSON array of corrected tool calls. If a failure is unrecoverable, omit it."""
-
-        healed = chat("You are a WPS COM API expert. Output corrected JSON arrays only, no extra text.", heal_prompt)
-        if not healed:
-            break
-        try:
-            healed = healed.strip()
-            if healed.startswith("```"):
-                healed = healed.split("\n", 1)[1].rsplit("```", 1)[0]
-            corrected = json.loads(healed)
-            if isinstance(corrected, list):
-                more_ok, more_fail = _execute_batch(corrected)
-                executed.extend(more_ok)
-                failed = more_fail + failed[len(more_fail):]
-        except Exception:
-            break
-
+def _content_selection(doc_index=None):
+    sel = get_app().Selection
+    r = sel.Range
     return {
-        "instructions": instructions,
-        "executed": len(executed),
-        "failed": len(failed),
-        "details": executed[:20],
-        "failures": failed[:5],
-        "quality_check": _run_supervisor(doc_index),
+        "text": r.Text,
+        "start": r.Start,
+        "end": r.End,
     }
 
 
-def _run_supervisor(doc_index):
-    try:
-        from intelligence.quality_supervisor import evaluate
-        return evaluate(doc_index)
-    except Exception as e:
-        return {"error": str(e)}
-
-
-def _ai_auto_toc(doc_index):
-    from wps_bridge.app import get_doc
-    from wps_bridge.utils import com_property, com_set
+def _content_range(start_pos=0, end_pos=-1, doc_index=None):
     doc = get_doc(doc_index)
-    try:
-        r = doc.Range(0, 0)
-        toc = doc.TablesOfContents.Add(r, True, 1, 3)
-        toc.Update()
-        # Format TOC: iterate TOC paragraphs and apply proper Chinese formatting
-        formatted = 0
-        for i in range(1, doc.Paragraphs.Count + 1):
-            try:
-                p = doc.Paragraphs.Item(i)
-                style_name = com_property(p.Range.Style, "NameLocal", "")
-                if "TOC" in style_name or "目录" in style_name:
-                    f = p.Range.Font
-                    com_set(f, "ColorIndex", 1)
-                    com_set(f, "NameFarEast", "宋体")
-                    com_set(p.Range.ParagraphFormat, "LineSpacingRule", 4)
-                    if "TOC 1" in style_name:
-                        com_set(f, "NameFarEast", "黑体")
-                        com_set(f, "Size", 14)
-                        com_set(p.Range.ParagraphFormat, "LineSpacing", 26)
-                    elif "TOC 2" in style_name:
-                        com_set(f, "Size", 12)
-                        com_set(p.Range.ParagraphFormat, "LineSpacing", 22)
-                    elif "TOC 3" in style_name:
-                        com_set(f, "Size", 10.5)
-                        com_set(p.Range.ParagraphFormat, "LineSpacing", 20)
+    end = end_pos if end_pos > 0 else doc.Content.End - 1
+    rng = doc.Range(start_pos, end)
+    return {
+        "text": rng.Text,
+        "start": rng.Start,
+        "end": rng.End,
+    }
+
+
+# ─── Content Handler (Offline-first) ───
+
+def _handle_content(action: str, args: dict, mode: str) -> dict:
+    filepath = args.get("filepath")
+
+    if action in ("delete_paragraphs", "delete_runs", "replace_paragraph_text", "replace_runs"):
+        return _handle_content_com(action, args)
+
+    if action in ("full_text", "paragraph", "paragraphs", "outline", "batch",
+                   "runs_detail", "document_structure", "full_structure",
+                   "semantic_structure", "cross_references", "cache_status",
+                   "snapshot", "rollback"):
+        # These are read operations — use offline mode for precision
+        if not filepath:
+            # Fallback to COM if no filepath provided
+            return _handle_content_com(action, args)
+
+        doc = _get_cached_doc(filepath)
+        if doc is None:
+            doc = read_docx_model(filepath)
+            _cache_doc(filepath, doc)
+
+        if action == "full_text":
+            return {"text": doc.text}
+        elif action == "paragraph":
+            idx = args["para_index"]
+            p = doc.get_paragraph(idx)
+            if p is None:
+                return {"error": f"Paragraph {idx} not found", "error_code": "PARAGRAPH_NOT_FOUND"}
+            return {
+                "index": idx,
+                "text": p.text,
+                "style_id": p.style_id,
+                "alignment": p.alignment,
+                "outline_level": p.outline_level,
+                "run_count": len(p.runs),
+                "runs": [{"text": r.text[:100], "font": r.font, "size": r.size, "bold": r.bold, "italic": r.italic} for r in p.runs[:5]],
+            }
+        elif action == "paragraphs":
+            start = args.get("start", 1)
+            count = args.get("count", 10)
+            result = []
+            for i in range(start, min(start + count, len(doc.paragraphs) + 1)):
+                p = doc.get_paragraph(i)
+                if p:
+                    result.append({
+                        "index": i,
+                        "text": p.text[:200],
+                        "style_id": p.style_id,
+                        "heading_level": p.heading_level(),
+                        "run_count": len(p.runs),
+                    })
+            return {"items": result, "total": len(doc.paragraphs)}
+        elif action == "outline":
+            return {"headings": doc.get_heading_structure()}
+        elif action == "batch":
+            results = []
+            for item in args.get("items", []):
+                item_type = item.get("type", item.get("action", ""))
+                try:
+                    if item_type == "paragraph":
+                        p = doc.get_paragraph(item["para_index"])
+                        data = {"index": item["para_index"], "text": p.text if p else ""}
+                    elif item_type == "paragraphs":
+                        s = item.get("start", 1)
+                        c = item.get("count", 10)
+                        data = {"items": [{"index": i, "text": doc.get_paragraph(i).text[:200]} for i in range(s, min(s+c, len(doc.paragraphs)+1)) if doc.get_paragraph(i)]}
+                    elif item_type == "outline":
+                        data = doc.get_heading_structure()
+                    elif item_type == "full_text":
+                        data = doc.text
                     else:
-                        com_set(p.Range.ParagraphFormat, "LineSpacing", 22)
-                    com_set(f, "Bold", False)
-                    formatted += 1
+                        results.append({"ok": False, "type": item_type, "error": f"Unknown type: {item_type}"})
+                        continue
+                    results.append({"ok": True, "type": item_type, "data": data})
+                except Exception as e:
+                    results.append({"ok": False, "type": item_type, "error": str(e)})
+            return {"results": results}
+
+        elif action == "runs_detail":
+            para_idx = args.get("para_index", 1)
+            if not filepath:
+                from wps_bridge.content import runs_detail
+                return runs_detail(para_idx, args.get("doc_index"))
+            p = doc.get_paragraph(para_idx)
+            if p is None:
+                return {"error": f"Paragraph {para_idx} not found", "error_code": "PARAGRAPH_NOT_FOUND"}
+            return {
+                "para_index": para_idx,
+                "text": p.text,
+                "style_id": p.style_id,
+                "alignment": p.alignment,
+                "outline_level": p.outline_level,
+                "first_line_indent": p.first_line_indent,
+                "space_before": p.space_before,
+                "space_after": p.space_after,
+                "line_spacing": p.line_spacing,
+                "line_rule": p.line_rule,
+                "run_count": len(p.runs),
+                "runs": [{
+                    "index": i, "text": r.text[:200],
+                    "font": r.font, "font_east_asia": r.font_east_asia,
+                    "size": r.size, "bold": r.bold, "italic": r.italic,
+                    "underline": r.underline, "color": r.color, "highlight": r.highlight,
+                    "strike": r.strike, "double_strike": r.double_strike,
+                    "emboss": r.emboss, "imprint": r.imprint, "shadow": r.shadow, "outline": r.outline,
+                    "superscript": r.superscript, "subscript": r.subscript,
+                    "caps": r.caps, "small_caps": r.small_caps,
+                    "char_spacing": r.char_spacing, "kerning": r.kerning, "scaling": r.scaling,
+                    "baseline_offset": r.baseline_offset,
+                    "emphasis_mark": r.emphasis_mark,
+                    "hyperlink_url": r.hyperlink_url,
+                } for i, r in enumerate(p.runs)],
+            }
+
+        elif action == "document_structure":
+            from wps_bridge.content import document_structure
+            return document_structure(args.get("doc_index"))
+
+        elif action == "full_structure":
+            return doc.get_full_structure()
+
+        elif action == "semantic_structure":
+            return {"paragraphs": doc.detect_semantic_structure()}
+
+        elif action == "cross_references":
+            return {"references": doc.detect_cross_references()}
+
+        elif action == "cache_status":
+            fp = filepath or ""
+            return _check_cache_staleness(fp) if fp else {
+                "cache_size": len(_doc_cache),
+                "snapshot_count": len(_snapshot_cache),
+                "cached_files": list(_doc_cache.keys()),
+                "snapshot_files": list(_snapshot_cache.keys()),
+            }
+
+        elif action == "snapshot":
+            if not filepath:
+                return {"error": "filepath required for snapshot", "error_code": "MISSING_PARAM"}
+            doc = _get_cached_doc(filepath)
+            if doc is None:
+                doc = read_docx_model(filepath)
+                _cache_doc(filepath, doc)
+            import copy
+            _snapshot_cache[filepath] = copy.deepcopy(doc)
+            return {"snapshot": True, "para_count": len(doc.paragraphs), "table_count": len(doc.tables)}
+
+        elif action == "rollback":
+            if not filepath:
+                return {"error": "filepath required for rollback", "error_code": "MISSING_PARAM"}
+            snap = _snapshot_cache.pop(filepath, None)
+            if snap is None:
+                return {"error": f"No snapshot found for {filepath}", "error_code": "NO_SNAPSHOT"}
+            import copy
+            doc = copy.deepcopy(snap)
+            _cache_doc(filepath, doc)
+            output = args.get("output_path", filepath)
+            write_docx_model(doc, output, filepath)
+            return {"rollback": True, "restored_paragraphs": len(doc.paragraphs), "saved_to": output}
+
+    elif action in ("insert_text", "insert_run", "delete_run", "split_run",
+                     "delete_range", "replace_range", "create_cover"):
+        # Write operations — offline mode with save
+        if not filepath:
+            return _handle_content_com(action, args)
+
+        doc = _get_cached_doc(filepath)
+        if doc is None:
+            doc = read_docx_model(filepath)
+
+        if action == "insert_text":
+            text = args["text"]
+            position = args.get("position", "end")
+            lines = text.split("\n")
+            new_paras = [Paragraph(runs=[Run(text=line)]) for line in lines if line.strip()]
+
+            if position == "end":
+                for para in new_paras:
+                    doc.paragraphs.append(para)
+            elif position == "before" and args.get("para_index"):
+                idx = args["para_index"]
+                for para in reversed(new_paras):
+                    doc.insert_paragraph(idx, para)
+            elif position == "after" and args.get("para_index"):
+                idx = args["para_index"]
+                for para in new_paras:
+                    doc.insert_paragraph(idx + 1, para)
+
+            # Auto-save if filepath provided
+            output = args.get("output_path", filepath)
+            write_docx_model(doc, output, filepath)
+            _cache_doc(output, doc)
+            return {"inserted": True, "paragraphs_created": len(new_paras), "saved_to": output}
+
+        elif action == "insert_run":
+            para_idx = args["para_index"]
+            run_idx = args.get("run_index")
+            text = args.get("text", "")
+            para = doc.get_paragraph(para_idx)
+            if para is None:
+                return {"error": f"Paragraph {para_idx} not found", "error_code": "PARAGRAPH_NOT_FOUND"}
+
+            new_run = Run(text=text)
+            if args.get("font_name"):
+                new_run.font = args["font_name"]
+            if args.get("size"):
+                new_run.size = args["size"]
+            if "bold" in args:
+                new_run.bold = args["bold"]
+            if "italic" in args:
+                new_run.italic = args["italic"]
+
+            if run_idx is not None and 0 <= run_idx <= len(para.runs):
+                para.runs.insert(run_idx, new_run)
+            else:
+                para.runs.append(new_run)
+
+            output = args.get("output_path", filepath)
+            write_docx_model(doc, output, filepath)
+            _cache_doc(output, doc)
+            return {"inserted": True, "run_index": run_idx if run_idx is not None else len(para.runs) - 1, "saved_to": output}
+
+        elif action == "delete_run":
+            para_idx = args["para_index"]
+            run_idx = args["run_index"]
+            para = doc.get_paragraph(para_idx)
+            if para is None:
+                return {"error": f"Paragraph {para_idx} not found", "error_code": "PARAGRAPH_NOT_FOUND"}
+            if 0 <= run_idx < len(para.runs):
+                removed = para.runs.pop(run_idx)
+                output = args.get("output_path", filepath)
+                write_docx_model(doc, output, filepath)
+                _cache_doc(output, doc)
+                return {"deleted": True, "removed_text": removed.text, "saved_to": output}
+            return {"error": f"Run {run_idx} not found", "error_code": "RUN_NOT_FOUND"}
+
+        elif action == "split_run":
+            para_idx = args["para_index"]
+            run_idx = args["run_index"]
+            split_pos = args.get("split_pos", 0)
+            para = doc.get_paragraph(para_idx)
+            if para is None:
+                return {"error": f"Paragraph {para_idx} not found", "error_code": "PARAGRAPH_NOT_FOUND"}
+            if 0 <= run_idx < len(para.runs):
+                run = para.runs[run_idx]
+                if 0 < split_pos < len(run.text):
+                    left = run.clone()
+                    left.text = run.text[:split_pos]
+                    right = run.clone()
+                    right.text = run.text[split_pos:]
+                    para.runs[run_idx] = left
+                    para.runs.insert(run_idx + 1, right)
+                    output = args.get("output_path", filepath)
+                    write_docx_model(doc, output, filepath)
+                    _cache_doc(output, doc)
+                    return {"split": True, "run_count": len(para.runs), "saved_to": output}
+            return {"error": f"Run {run_idx} not splittable", "error_code": "INVALID_RANGE"}
+        elif action == "delete_range":
+            start_pos = args["start_pos"]
+            end_pos = args.get("end_pos")
+
+            if end_pos is None:
+                doc.paragraphs.clear()
+            else:
+                flat_text = ""
+                para_starts = []
+                for p in doc.paragraphs:
+                    para_starts.append(len(flat_text))
+                    flat_text += p.text + "\n"
+                flat_text = flat_text.rstrip("\n")
+
+                actual_end = min(end_pos, len(flat_text))
+                if 0 <= start_pos < len(flat_text):
+                    new_text = flat_text[:start_pos] + flat_text[actual_end:]
+                    doc.paragraphs.clear()
+                    for line in new_text.split("\n"):
+                        if line:
+                            doc.paragraphs.append(Paragraph(runs=[Run(text=line)]))
+
+            output = args.get("output_path", filepath)
+            write_docx_model(doc, output, filepath)
+            _cache_doc(output, doc)
+            return {"deleted": True, "saved_to": output}
+
+        elif action == "replace_range":
+            start_pos = args["start_pos"]
+            end_pos = args["end_pos"]
+            new_text = args["new_text"]
+
+            flat_text = ""
+            for p in doc.paragraphs:
+                flat_text += p.text + "\n"
+            flat_text = flat_text.rstrip("\n")
+
+            actual_end = min(end_pos, len(flat_text))
+            if 0 <= start_pos < len(flat_text):
+                result_text = flat_text[:start_pos] + new_text + flat_text[actual_end:]
+                doc.paragraphs.clear()
+                for line in result_text.split("\n"):
+                    if line:
+                        doc.paragraphs.append(Paragraph(runs=[Run(text=line)]))
+                    else:
+                        doc.paragraphs.append(Paragraph())
+
+            output = args.get("output_path", filepath)
+            write_docx_model(doc, output, filepath)
+            _cache_doc(output, doc)
+            return {"replaced": True, "saved_to": output}
+
+        elif action == "create_cover":
+            lines = args.get("lines", [])
+            clear = args.get("clear_existing", True)
+            if clear:
+                doc.paragraphs.clear()
+
+            for line in lines:
+                text = line.get("text", "").strip()
+                if not text:
+                    continue
+                para = Paragraph()
+                para.alignment = line.get("alignment", "center")
+                para.space_before = line.get("space_before", 0)
+                para.space_after = line.get("space_after", 0)
+                run = Run(
+                    text=text,
+                    font=line.get("font_name"),
+                    size=line.get("font_size"),
+                    bold=line.get("bold", False),
+                    italic=line.get("italic", False),
+                )
+                para.runs.append(run)
+                doc.paragraphs.append(para)
+
+            output = args.get("output_path", filepath)
+            write_docx_model(doc, output, filepath)
+            _cache_doc(output, doc)
+            return {"created": True, "paragraphs": len(lines), "saved_to": output}
+
+    elif action == "query_by_role":
+        if not filepath:
+            return _handle_content_com(action, args)
+        doc = _get_cached_doc(filepath)
+        if doc is None:
+            doc = read_docx_model(filepath)
+            _cache_doc(filepath, doc)
+        role = args.get("sr", args.get("role", ""))
+        if not role:
+            return {"error": "Provide sr or role parameter", "error_code": "MISSING_PARAM"}
+        from docx_engine.semantic_model import SemanticParser, SemanticRole
+        parser = SemanticParser(doc)
+        results = parser.parse()
+        matched = [{"index": r.index, "role": r.role, "confidence": r.confidence,
+                    "text": r.text_preview} for r in results.elements if r.role == role]
+        if not matched:
+            broader = {
+                "abstract": [SemanticRole.ABSTRACT_LABEL, SemanticRole.ABSTRACT_CONTENT],
+                "cover": [SemanticRole.COVER_TITLE, SemanticRole.COVER_SUBTITLE, SemanticRole.COVER_DATE, SemanticRole.COVER_AUTHOR, SemanticRole.COVER_INSTITUTION],
+                "keywords": [SemanticRole.KEYWORDS_LABEL, SemanticRole.KEYWORDS],
+                "toc": [SemanticRole.TOC_HEADING, SemanticRole.TOC_ENTRY],
+                "references": [SemanticRole.REFERENCE_SECTION_HEADER, SemanticRole.REFERENCE_ITEM],
+                "acknowledgements": [SemanticRole.ACKNOWLEDGEMENTS],
+                "appendix": [SemanticRole.APPENDIX_HEADING, SemanticRole.APPENDIX_CONTENT],
+            }
+            if role in broader:
+                matched = [{"index": r.index, "role": r.role, "confidence": r.confidence,
+                            "text": r.text_preview} for r in results.elements if r.role in broader[role]]
+        return {"role": role, "matched": len(matched), "paragraphs": matched}
+
+    # Fallback to COM for unsupported operations
+    return _handle_content_com(action, args)
+
+
+def _handle_content_com(action: str, args: dict) -> dict:
+    """Fallback COM-based content handler."""
+    doc = get_doc(args.get("doc_index"))
+    if action == "full_text":
+        return {"text": com_property(doc.Content, "Text", "")}
+    elif action == "paragraph":
+        p = doc.Paragraphs.Item(args["para_index"])
+        return {"index": args["para_index"], "text": com_property(p.Range, "Text", "").strip()}
+    elif action == "paragraphs":
+        result = []
+        total = doc.Paragraphs.Count
+        end = min(args.get("start", 1) + args.get("count", 10) - 1, total)
+        for i in range(args.get("start", 1), end + 1):
+            p = doc.Paragraphs.Item(i)
+            result.append({"index": i, "text": com_property(p.Range, "Text", "").strip()[:200]})
+        return {"items": result, "total": total}
+    elif action == "runs_detail":
+        from wps_bridge.content import runs_detail
+        return runs_detail(args.get("para_index", 1), args.get("doc_index"))
+    elif action == "document_structure":
+        from wps_bridge.content import document_structure
+        return document_structure(args.get("doc_index"))
+    elif action == "insert_text":
+        from wps_bridge.content import insert_text as _insert_text
+        return _insert_text(args.get("text", ""), args.get("position", "end"),
+                           args.get("para_index"), args.get("doc_index"))
+    elif action == "insert_paragraph":
+        from wps_bridge.content import insert_paragraph
+        return insert_paragraph(args.get("text", ""), args.get("style"),
+                               args.get("position", "end"), args.get("para_index"), args.get("doc_index"))
+    elif action == "delete_paragraphs":
+        from wps_bridge.content import delete_paragraphs
+        return delete_paragraphs(args.get("from_para", args.get("para_index", 1)),
+                                args.get("to_para", args.get("para_index", 1)),
+                                args.get("doc_index"))
+    elif action == "delete_runs":
+        from wps_bridge.content import delete_runs
+        return delete_runs(args.get("para_index", 1), args.get("from_run", 1),
+                          args.get("to_run", 1), args.get("doc_index"))
+    elif action == "replace_paragraph_text":
+        from wps_bridge.content import replace_paragraph_text
+        return replace_paragraph_text(args.get("para_index", 1), args.get("new_text", ""),
+                                     args.get("preserve_format", False), args.get("doc_index"))
+    elif action == "replace_runs":
+        from wps_bridge.content import replace_runs
+        return replace_runs(args.get("para_index", 1), args.get("run_indices", []),
+                           args.get("new_text", ""), args.get("doc_index"))
+    elif action == "create_cover":
+        from wps_bridge.content import create_cover
+        return create_cover(args.get("lines", []), args.get("clear_existing", True), args.get("doc_index"))
+    elif action == "snapshot":
+        from wps_bridge.content import snapshot
+        return snapshot(args.get("doc_index"))
+    elif action == "rollback":
+        from wps_bridge.content import rollback
+        return rollback(args.get("doc_index"))
+    elif action == "delete_range":
+        end = args.get("end_pos", doc.Content.End)
+        doc.Range(args["start_pos"], end).Delete()
+        return {"deleted": True}
+    elif action == "replace_range":
+        start_pos = args["start_pos"]
+        end_pos = args.get("end_pos")
+        new_text = args.get("new_text", "")
+        if end_pos is None:
+            end_pos = doc.Content.End
+        try:
+            r = doc.Range(start_pos, end_pos)
+            # Preserve formatting from original range
+            try:
+                fmt_copy = r.Font.Duplicate
+                para_fmt_copy = r.ParagraphFormat.Duplicate
+            except Exception:
+                fmt_copy = None
+                para_fmt_copy = None
+            r.Text = new_text
+            # Restore formatting on the new text
+            if fmt_copy is not None:
+                try:
+                    new_range = doc.Range(start_pos, start_pos + len(new_text))
+                    new_range.Font = fmt_copy
+                    if para_fmt_copy is not None:
+                        new_range.ParagraphFormat = para_fmt_copy
+                except Exception:
+                    pass
+            return {"replaced": True, "start": start_pos, "end": start_pos + len(new_text)}
+        except Exception as e:
+            return {"replaced": False, "error": str(e)}
+    elif action == "batch":
+        from wps_bridge.content import batch as _content_batch
+        return {"details": _content_batch(args.get("items", []), args.get("doc_index")), "total": len(args.get("items", []))}
+    elif action == "outline":
+        from wps_bridge.content import outline
+        return {"headings": outline(args.get("doc_index"))}
+    elif action == "shapes":
+        from wps_bridge.content import shapes
+        return shapes(args.get("include_inlines", True), args.get("doc_index"))
+    elif action == "find_text":
+        from wps_bridge.content import find_text
+        return {"results": find_text(args.get("query", ""), args.get("match_case", False), args.get("whole_word", False), args.get("doc_index"))}
+    elif action == "find_all":
+        from wps_bridge.content import find_all
+        return find_all(args.get("query", ""), args.get("match_case", True), args.get("doc_index"))
+    elif action == "select_by_role":
+        from wps_bridge.content import select_by_role
+        return select_by_role(args.get("role", ""), args.get("filepath"), args.get("doc_index"))
+    elif action == "selection":
+        return _content_selection(args.get("doc_index"))
+    elif action == "range":
+        return _content_range(args.get("start_pos", 0), args.get("end_pos", 0), args.get("doc_index"))
+    elif action == "full_structure":
+        from wps_bridge.content import document_structure
+        return {"structure": document_structure(args.get("doc_index"))}
+    elif action == "semantic_structure":
+        from wps_bridge.content import document_structure
+        ds = document_structure(args.get("doc_index"))
+        return {"paragraphs": ds.get("paragraphs", [])}
+    elif action == "cross_references":
+        return {"references": [], "note": "Cross-reference detection requires offline mode with filepath"}
+    return {"error": f"Unknown content action: {action}"}
+
+
+# ─── Format Handler ───
+
+def _handle_format(action: str, args: dict, mode: str) -> dict:
+    filepath = args.get("filepath")
+
+    # ── COM-only run-level font operations ──
+    if action in ("get_run_font", "set_run_font"):
+        return _handle_format_com(action, args)
+
+    if action in ("set_font", "set_paragraph_format", "set_run_format", "apply_style", "batch") and filepath:
+        # Offline formatting
+        doc = _get_cached_doc(filepath)
+        if doc is None:
+            doc = read_docx_model(filepath)
+
+        if action == "set_font":
+            para_idx = args.get("para_index")
+            run_idx = args.get("run_index")
+            if para_idx:
+                para = doc.get_paragraph(para_idx)
+                if para:
+                    target_runs = [para.runs[run_idx]] if run_idx is not None and 0 <= run_idx < len(para.runs) else para.runs
+                    for run in target_runs:
+                        if args.get("name"):
+                            run.font = args["name"]
+                        if args.get("size"):
+                            run.size = args["size"]
+                        if "bold" in args:
+                            run.bold = args["bold"]
+                        if "italic" in args:
+                            run.italic = args["italic"]
+            output = args.get("output_path", filepath)
+            write_docx_model(doc, output, filepath)
+            _cache_doc(output, doc)
+            return {"updated": True, "saved_to": output}
+
+        elif action == "set_run_format":
+            para_idx = args.get("para_index")
+            run_idx = args.get("run_index")
+            if para_idx is None or run_idx is None:
+                return {"error": "para_index and run_index required for set_run_format"}
+            para = doc.get_paragraph(para_idx)
+            if para is None:
+                return {"error": f"Paragraph {para_idx} not found", "error_code": "PARAGRAPH_NOT_FOUND"}
+            if not (0 <= run_idx < len(para.runs)):
+                return {"error": f"Run {run_idx} not found", "error_code": "RUN_NOT_FOUND"}
+
+            run = para.runs[run_idx]
+            for attr in ("font", "size", "bold", "italic", "underline", "color", "highlight",
+                         "strike", "superscript", "subscript", "char_spacing", "kerning",
+                         "scaling", "caps", "small_caps"):
+                if attr in args and args[attr] is not None:
+                    setattr(run, attr, args[attr])
+
+            if args.get("text") is not None:
+                run.text = args["text"]
+
+            output = args.get("output_path", filepath)
+            write_docx_model(doc, output, filepath)
+            _cache_doc(output, doc)
+            return {"updated": True, "run_index": run_idx, "saved_to": output}
+
+        elif action == "set_paragraph_format":
+            para_idx = args.get("para_index")
+            if para_idx is None or para_idx < 1:
+                para_idx = 1
+            if para_idx:
+                para = doc.get_paragraph(para_idx)
+                if para:
+                    if args.get("alignment"):
+                        para.alignment = args["alignment"]
+                    if args.get("first_line_indent") is not None:
+                        para.first_line_indent = args["first_line_indent"]
+                    if args.get("space_before") is not None:
+                        para.space_before = args["space_before"]
+                    if args.get("space_after") is not None:
+                        para.space_after = args["space_after"]
+                    if args.get("line_spacing") is not None:
+                        para.line_spacing = args["line_spacing"]
+                    if args.get("line_spacing_rule"):
+                        para.line_rule = args["line_spacing_rule"]
+            output = args.get("output_path", filepath)
+            write_docx_model(doc, output, filepath)
+            _cache_doc(output, doc)
+            return {"updated": True, "saved_to": output}
+
+        elif action == "batch":
+            ops = args.get("operations", [])
+            changes = 0
+            for op in ops:
+                op_type = op.get("type", op.get("action", ""))
+                pidx = op.get("para_index")
+                para = doc.get_paragraph(pidx) if pidx else None
+                if not para:
+                    continue
+                if op_type == "set_font":
+                    for run in para.runs:
+                        if op.get("name"):
+                            run.font = op["name"]
+                        if op.get("size"):
+                            run.size = op["size"]
+                        if "bold" in op:
+                            run.bold = op["bold"]
+                    changes += 1
+                elif op_type == "set_paragraph_format":
+                    if op.get("alignment"):
+                        para.alignment = op["alignment"]
+                    if op.get("first_line_indent") is not None:
+                        para.first_line_indent = op["first_line_indent"]
+                    changes += 1
+            output = args.get("output_path", filepath)
+            write_docx_model(doc, output, filepath)
+            _cache_doc(output, doc)
+            return {"updated": True, "changes": changes, "saved_to": output}
+
+    # COM fallback
+    return _handle_format_com(action, args)
+
+
+def _handle_format_com(action: str, args: dict) -> dict:
+    from wps_bridge.formatting import get_run_font as _get_run_font, set_run_font as _set_run_font, get_font as _get_font_bridge
+
+    doc = get_doc(args.get("doc_index"))
+    if action == "get_run_font":
+        return _get_run_font(
+            args.get("para_index", 1),
+            args.get("run_index", 1),
+            args.get("doc_index"),
+        )
+    elif action == "set_run_font":
+        font_kwargs = {}
+        for key in ("name", "name_far_east", "size", "bold", "italic", "underline",
+                     "color_index", "color_rgb", "highlight", "superscript", "subscript",
+                     "strike_through", "spacing", "scaling", "kerning",
+                     "caps", "small_caps", "emboss", "shadow", "outline", "vanish"):
+            if key in args and args[key] is not None:
+                font_kwargs[key] = args[key]
+        return _set_run_font(
+            args.get("para_index", 1),
+            args.get("run_index", 1),
+            args.get("doc_index"),
+            **font_kwargs,
+        )
+    elif action == "get_font":
+        return _get_font_bridge(args.get("para_index"), args.get("start_pos"), args.get("end_pos"), args.get("use_selection", False), args.get("doc_index"))
+    elif action == "set_font":
+        from wps_bridge.formatting import set_font as _sf
+        font_kwargs = {}
+        for k in ("name", "name_far_east", "size", "bold", "italic", "underline",
+                   "color_index", "color_rgb", "highlight", "superscript", "subscript",
+                   "strike_through", "spacing", "scaling", "kerning",
+                   "caps", "small_caps", "emboss", "shadow", "outline", "vanish"):
+            if k in args:
+                font_kwargs[k] = args[k]
+        return _sf(para_index=args.get("para_index"),
+                   start_pos=args.get("start_pos"), end_pos=args.get("end_pos"),
+                   use_selection=args.get("use_selection", False),
+                   doc_index=args.get("doc_index"), **font_kwargs)
+    elif action == "batch":
+        # COM-based batch format operations
+        ops = args.get("operations", [])
+        results = []
+        for op in ops:
+            op_type = op.get("type", op.get("action", ""))
+            pidx = op.get("para_index")
+            try:
+                if op_type == "set_font" and pidx:
+                    from wps_bridge.formatting import set_font as _bsf
+                    font_kwargs = {}
+                    for k in ("name", "name_far_east", "size", "bold", "italic", "underline",
+                               "color_index", "color_rgb", "highlight", "superscript",
+                               "subscript", "strike_through", "spacing", "scaling", "kerning",
+                               "caps", "small_caps", "emboss", "shadow", "outline", "vanish"):
+                        if k in op:
+                            font_kwargs[k] = op[k]
+                    _bsf(para_index=pidx, doc_index=args.get("doc_index"), **font_kwargs)
+                    results.append({"ok": True, "type": "set_font", "result": {"updated": True}})
+                elif op_type == "set_paragraph_format" and pidx:
+                    from wps_bridge.formatting import set_paragraph_format as _bspf
+                    pf_kwargs = {}
+                    for k in ("alignment", "first_line_indent", "left_indent", "right_indent",
+                               "line_spacing_rule", "line_spacing", "space_before", "space_after",
+                               "outline_level", "widow_control", "keep_with_next"):
+                        if k in op:
+                            pf_kwargs[k] = op[k]
+                    _bspf(para_index=pidx, doc_index=args.get("doc_index"), **pf_kwargs)
+                    results.append({"ok": True, "type": "set_paragraph_format", "result": {"updated": True}})
+                else:
+                    results.append({"ok": False, "type": op_type, "error": f"Unknown or unsupported batch operation: {op_type}"})
+            except Exception as e:
+                results.append({"ok": False, "type": op_type, "error": str(e)})
+        return {"total": len(ops), "success": sum(1 for r in results if r["ok"]), "failed": sum(1 for r in results if not r["ok"]), "details": results}
+    elif action == "get_paragraph_format":
+        from wps_bridge.formatting import get_paragraph_format as _get_pf
+        return _get_pf(args["para_index"], args.get("doc_index"))
+    elif action == "set_paragraph_format":
+        from wps_bridge.formatting import set_paragraph_format as _set_pf
+        para_index = args.get("para_index")
+        if para_index is None or para_index < 1:
+            para_index = 1
+        pf_kwargs = {}
+        for k in ("alignment", "first_line_indent", "left_indent", "right_indent",
+                   "line_spacing_rule", "line_spacing", "space_before", "space_after",
+                   "outline_level", "widow_control", "keep_with_next"):
+            if k in args and args[k] is not None:
+                pf_kwargs[k] = args[k]
+        return _set_pf(para_index=para_index, use_selection=args.get("use_selection", False), doc_index=args.get("doc_index"), **pf_kwargs)
+    elif action == "apply_style":
+        style_name = args["style_name"]
+        if args.get("use_selection"):
+            get_app().Selection.ParagraphFormat.Style = style_name
+        elif args.get("para_index"):
+            pi = args["para_index"]
+            if pi < 1:
+                pi = 1
+            doc.Paragraphs.Item(pi).Range.Style = style_name
+        return {"applied": style_name}
+    elif action == "clear_formatting":
+        from wps_bridge.formatting import clear_formatting as _cf
+        return _cf(args.get("para_index"), args.get("use_selection", False), args.get("doc_index"))
+    elif action == "copy_format":
+        from wps_bridge.formatting import copy_format as _cpf
+        return _cpf(args["source_para_index"], args["target_para_indices"], args.get("doc_index"))
+    elif action == "add_hyperlink":
+        from wps_bridge.formatting import add_hyperlink as _ah
+        return _ah(args["text"], args["url"], args.get("para_index"), args.get("doc_index"))
+    elif action == "set_tab_stops":
+        from wps_bridge.formatting import set_tab_stops as _sts
+        return _sts(args["para_index"], args.get("stops", []), args.get("doc_index"))
+    elif action == "set_bullet_list":
+        from wps_bridge.formatting import set_bullet_list as _sbl
+        return _sbl(args.get("para_indices", []), args.get("bullet_char"), args.get("doc_index"))
+    elif action == "add_watermark":
+        from wps_bridge.document import add_watermark as _aw
+        return _aw(args["text"], args.get("font_size", 72), args.get("color", 15), args.get("doc_index"))
+    elif action == "remove_watermark":
+        from wps_bridge.document import remove_watermark as _rw
+        return _rw(args.get("doc_index"))
+    elif action == "resolve_format":
+        from wps_bridge.format_resolver import resolve_paragraph_format
+        return resolve_paragraph_format(args.get("para_index", 1), args.get("doc_index"))
+    elif action == "resolve_run_format":
+        from wps_bridge.format_resolver import resolve_run_format
+        return resolve_run_format(args.get("para_index", 1), args.get("run_index", 1), args.get("doc_index"))
+    elif action == "set_text_effect":
+        from wps_bridge.formatting import set_text_effect as _ste
+        return _ste(args.get("para_index", 1), args.get("effect", ""),
+                    args.get("color_rgb", 0), args.get("offset", 2.0),
+                    args.get("doc_index"))
+    return {"error": f"Unknown format action: {action}"}
+
+
+# ─── Style Handler ───
+
+def _handle_style(action: str, args: dict) -> dict:
+    doc = get_doc(args.get("doc_index"))
+    if action == "list":
+        styles = []
+        for i in range(1, min(doc.Styles.Count, 200) + 1):
+            try:
+                s = doc.Styles.Item(i)
+                styles.append({"name": com_property(s, "NameLocal", ""), "builtin": bool(com_property(s, "BuiltIn", 0))})
             except Exception:
                 continue
-        return {"auto_toc": True, "levels": "1-3", "toc_paragraphs_formatted": formatted}
-    except Exception as e:
-        return {"auto_toc": False, "error": str(e), "note": "Use Insert Table of Contents manually or ensure headings have OutlineLevel set"}
+        return {"styles": styles}
+    elif action == "get":
+        s = doc.Styles.Item(args["name"])
+        return {"name": com_property(s, "NameLocal", ""), "font": com_property(s.Font, "Name", "")}
+    return {"error": f"Unknown style action: {action}"}
 
 
-def _ai_auto_numbering(doc_index):
-    from wps_bridge.app import get_doc
-    from wps_bridge.utils import com_property, com_set
-    doc = get_doc(doc_index)
-    numbered = 0
-    counters = {}
-    for i in range(1, doc.Paragraphs.Count + 1):
-        try:
-            p = doc.Paragraphs.Item(i)
-            level = com_property(p.Format, "OutlineLevel", 10)
-            if 1 <= level <= 5:
-                for l in range(level + 1, 6):
-                    counters[l] = 0
-                counters[level] = counters.get(level, 0) + 1
-                num_parts = [str(counters[l]) for l in range(1, level + 1)]
-                prefix = ".".join(num_parts) + " "
-                text = com_property(p.Range, "Text", "").strip()
-                # Skip if heading already has a number prefix (CJK or Arabic)
-                import re
-                already_numbered = re.match(r'^(\d+(\.\d+)*\s)|(第[一二三四五六七八九十百千]+章)|([一二三四五六七八九十]+、)', text)
-                if text and not already_numbered:
-                    p.Range.Text = prefix + text
-                    numbered += 1
-        except Exception:
-            continue
-    return {"numbered_headings": numbered, "note": "Headings with OutlineLevel 1-5 numbered as 1, 1.1, 1.1.1, etc."}
+# ─── Table Handler ───
 
+def _handle_table(action: str, args: dict) -> dict:
+    di = args.get("doc_index")
+    ti = args.get("table_index")
 
-def _ai_validate(doc_index):
-    doc_info = document.doc_info(doc_index)
-    outline_data = content.outline(doc_index)
-    issues = []
-    prev_level = 0
-    for h in outline_data:
-        level = h["outline_level"]
-        if level > prev_level + 1 and prev_level > 0:
-            issues.append(f"标题 {h['text'][:30]} 层级跳跃 (从{prev_level}级跳到{level}级)")
-        prev_level = level
-    return {
-        "document": doc_info,
-        "outline_count": len(outline_data),
-        "issues_found": len(issues),
-        "issues": issues,
-        "suggestion": "Run ai_format.analyze for detailed LLM analysis, or ai_format.auto_toc / auto_numbering for document structure",
-    }
-
-
-def _ai_generate_content(instructions, position, para_index, doc_index):
-    from intelligence.content_generator import generate_content
-    result = generate_content(instructions, position, para_index, doc_index)
-    # Auto-supervise after content generation
-    if "error" not in str(result):
-        try:
-            result["quality_check"] = _run_supervisor(doc_index)
-        except Exception:
-            pass
-    return result
-
-
-def _ai_summarize(doc_index):
-    from intelligence.content_generator import summarize_document
-    return summarize_document(doc_index)
-
-
-def _ai_rewrite(para_index, instructions, doc_index):
-    from intelligence.content_generator import rewrite_paragraph
-    return rewrite_paragraph(para_index, instructions, doc_index)
-
-
-def _ai_expand(para_index, doc_index):
-    from intelligence.content_generator import expand_section
-    return expand_section(para_index, doc_index)
-
-
-def _ai_translate(para_index, target_lang, doc_index):
-    from intelligence.content_generator import translate_section
-    return translate_section(para_index, target_lang, doc_index)
-
-
-def _ai_supervise(doc_index):
-    """Run quality supervisor: evaluate document and auto-fix layout issues."""
-    from intelligence.quality_supervisor import sanitize_and_fix
-    return sanitize_and_fix(doc_index)
-
-
-def _ai_suggest_design(topic: str = "", category: str = ""):
-    """Suggest PPTX design palette and typography based on topic."""
-    from intelligence.design_rules import PPTX_PALETTES, PPTX_TYPOGRAPHY, PPTX_ANTI_PATTERNS, PPTX_SIZES, suggest_palette, suggest_typography
-    result = {
-        "palettes": list(PPTX_PALETTES.keys()) if not topic else None,
-        "typography": PPTX_TYPOGRAPHY,
-        "anti_patterns": PPTX_ANTI_PATTERNS,
-        "sizes": PPTX_SIZES,
-    }
-    if topic:
-        pal = suggest_palette(topic)
-        result["recommended_palette"] = pal
-        result["recommended_typography"] = suggest_typography(pal.get("palette", {}).get("style", "professional"))
-    if category:
-        if category in PPTX_PALETTES:
-            result["palette_details"] = PPTX_PALETTES[category]
-    return result
-
-
-def _handle_excel(action: str, args: dict):
-    from wps_bridge import excel_app as xl
-
-    if action == "create":
-        result = xl.wb_create()
-    elif action == "open":
-        result = xl.wb_open(args["filepath"])
-    elif action == "list":
-        result = xl.wb_list()
-    elif action == "save":
-        result = xl.wb_save(args.get("filepath"))
-    elif action == "close":
-        result = xl.wb_close(args.get("save_changes", False))
-    elif action == "sheet_list":
-        result = xl.sheet_list()
-    elif action == "sheet_activate":
-        result = xl.sheet_activate(args["name"])
-    elif action == "sheet_add":
-        result = xl.sheet_add(args.get("name"))
-    elif action == "cell_read":
-        result = xl.cell_read(args["cell_ref"], args.get("sheet_name"))
-    elif action == "cell_write":
-        result = xl.cell_write(args["cell_ref"], args["value"], args.get("sheet_name"))
-    elif action == "range_read":
-        result = xl.range_read(args["start"], args["end"], args.get("sheet_name"))
-    elif action == "range_write":
-        result = xl.range_write(args["start"], args["data"], args.get("sheet_name"))
-    elif action == "font_set":
-        result = xl.font_set(args["cell_ref"], args.get("font_name"), args.get("font_size"),
-                             args.get("bold"), args.get("italic"), args.get("color"), args.get("sheet_name"))
-    elif action == "interior_set":
-        result = xl.interior_set(args["cell_ref"], args.get("color"), args.get("sheet_name"))
-    elif action == "borders_set":
-        result = xl.borders_set(args["cell_ref"], args.get("style", 1), args.get("sheet_name"))
-    elif action == "column_width":
-        result = xl.column_width(args["col"], args["width"], args.get("sheet_name"))
-    elif action == "auto_fit":
-        result = xl.auto_fit_range(args["start"], args["end"], args.get("sheet_name"))
-    elif action == "merge_cells":
-        result = xl.merge_cells(args["start"], args["end"], args.get("sheet_name"))
-    elif action == "formula_set":
-        result = xl.formula_set(args["cell_ref"], args["formula"], args.get("sheet_name"))
-    elif action == "chart_add":
-        result = xl.chart_add(args.get("chart_type", 4), args.get("left", 100), args.get("top", 100),
-                              args.get("chart_width", 400), args.get("chart_height", 300), args.get("sheet_name"))
-    elif action == "chart_set_source":
-        result = xl.chart_set_source(args["chart_index"], args["range_start"], args["range_end"], args.get("sheet_name"))
-    elif action == "chart_set_title":
-        result = xl.chart_set_title(args["chart_index"], args["title"], args.get("sheet_name"))
-    elif action == "sort":
-        result = xl.sort_range(args["start"], args["end"], args["key_col"], args.get("order", 1), args.get("sheet_name"))
-    elif action == "auto_filter":
-        result = xl.auto_filter(args["start"], args["end"], args.get("field", 1), args.get("criteria", ""), args.get("sheet_name"))
-    elif action == "remove_filter":
-        result = xl.remove_filter(args.get("sheet_name"))
-    elif action == "conditional_format":
-        result = xl.conditional_format(args["start"], args["end"], args.get("rule_type", 1), args.get("formula", ""), args.get("color", 3), args.get("sheet_name"))
-    elif action == "sheet_copy":
-        result = xl.sheet_copy(args["name"], args.get("before"), args.get("after"))
-    elif action == "sheet_delete":
-        result = xl.sheet_delete(args["name"])
-    elif action == "sheet_move":
-        result = xl.sheet_move(args["name"], args.get("before"), args.get("after"))
-    elif action == "freeze_panes":
-        result = xl.freeze_panes(args["cell_ref"], args.get("sheet_name"))
-    elif action == "insert_rows":
-        result = xl.insert_rows(args["row"], args.get("count", 1), args.get("sheet_name"))
-    elif action == "delete_rows":
-        result = xl.delete_rows(args["row"], args.get("count", 1), args.get("sheet_name"))
-    elif action == "add_cell_comment":
-        result = xl.add_cell_comment(args["cell_ref"], args["text"], args.get("sheet_name"))
-    elif action == "import_csv":
-        result = xl.import_csv(args["filepath"], args.get("delimiter", ","), args.get("has_header", True), args.get("sheet_name"))
-    elif action == "export_csv":
-        result = xl.export_csv(args["filepath"], args["start"], args["end"], args.get("delimiter", ","), args.get("sheet_name"))
-    elif action == "validate_formulas":
-        result = xl.validate_formulas(args.get("sheet_name"))
-    elif action == "recalc_formulas":
-        result = xl.recalc_formulas()
-    elif action == "apply_financial_colors":
-        result = xl.apply_financial_colors(args.get("sheet_name"))
-    elif action == "get_used_range":
-        result = xl.get_used_range(args.get("sheet_name"))
-    else:
-        result = {"error": f"Unknown excel action: {action}"}
-    return result
-
-
-def _handle_presentation(action: str, args: dict):
-    ppt = ppt_app
-
-    if action == "create":
-        result = ppt.pres_create()
-    elif action == "open":
-        result = ppt.pres_open(args["filepath"])
-    elif action == "list":
-        result = ppt.pres_list()
-    elif action == "save":
-        result = ppt.pres_save(args.get("filepath"))
-    elif action == "close":
-        result = ppt.pres_close(args.get("save_changes", False))
-    elif action == "slide_count":
-        result = {"slide_count": ppt.slide_count()}
-    elif action == "slide_info":
-        result = ppt.slide_info(args.get("slide_index", 1))
-    elif action == "add_slide":
-        result = ppt.add_slide(args.get("layout_index", 1))
-    elif action == "delete_slide":
-        result = ppt.delete_slide(args["slide_index"])
-    elif action == "set_title":
-        result = ppt.set_title(args["slide_index"], args["text"])
-    elif action == "set_body":
-        result = ppt.set_body(args["slide_index"], args["text"])
-    elif action == "add_textbox":
-        result = ppt.add_textbox(args["slide_index"], args["text"], args.get("left", 50), args.get("top", 100), args.get("width", 620), args.get("height", 300))
-    elif action == "format_text":
-        result = ppt.format_text(args["slide_index"], args["shape_index"], args.get("font_name"), args.get("font_size"), args.get("bold"), args.get("color"))
-    elif action == "insert_image":
-        result = ppt.insert_image(args["slide_index"], args["image_path"], args.get("left", 100), args.get("top", 100), args.get("width", 400), args.get("height", 300))
-    elif action == "insert_table":
-        result = ppt.insert_table(args["slide_index"], args["rows"], args["cols"], args.get("left", 50), args.get("top", 150), args.get("width", 600), args.get("height", 300))
-    elif action == "fill_cell":
-        result = ppt.fill_cell(args["slide_index"], args["table_index"], args["row"], args["col"], args["text"])
-    elif action == "apply_theme":
-        result = ppt.apply_theme(args["theme_name"])
-    elif action == "add_notes":
-        result = ppt.add_notes(args["slide_index"], args["text"])
-    elif action == "add_shape":
-        result = ppt.add_shape(args["slide_index"], args["shape_type"], args.get("left", 100), args.get("top", 100), args.get("width", 300), args.get("height", 200), args.get("fill_color"), args.get("line_color"), args.get("line_width", 1))
-    elif action == "reorder_slides":
-        result = ppt.reorder_slides(args["slide_order"])
-    elif action == "set_slide_background":
-        result = ppt.set_slide_background(args["slide_index"], args.get("color_hex"), args.get("image_path"), args.get("transparency", 0))
-    elif action == "add_chart_modern":
-        result = ppt.add_chart_modern(args["slide_index"], args["chart_type"], args["categories"], args["values"], args.get("series_name", ""), args.get("title", ""), args.get("left", 50), args.get("top", 100), args.get("width", 600), args.get("height", 350))
-    else:
-        result = {"error": f"Unknown presentation action: {action}"}
-    return result
-
-
-def _handle_offline_docx(action: str, args: dict):
-    from offline.docx_builder import build_docx, build_cover_page
-    output_path = args.get("output_path", args.get("output", "output.docx"))
-    if action == "build":
-        return build_docx(args.get("structure", {}), output_path)
-    elif action == "build_cover":
-        return build_cover_page(args.get("lines", []), output_path)
-    elif action == "validate":
-        from scripts.validate_docx import validate_docx
-        return validate_docx(args["filepath"], args.get("auto_fix", False))
-    return {"error": f"Unknown offline_docx action: {action}"}
-
-
-def _handle_offline_xlsx(action: str, args: dict):
-    from offline.xlsx_builder import build_xlsx, analyze_xlsx, convert_csv_to_xlsx, validate_formulas_offline, apply_financial_colors_offline
-    if action == "build":
-        return build_xlsx(args.get("structure", {}), args.get("output_path", "output.xlsx"))
-    elif action == "analyze":
-        return analyze_xlsx(args["filepath"])
-    elif action == "convert_csv":
-        return convert_csv_to_xlsx(args["csv_path"], args.get("output_path", "output.xlsx"), args.get("delimiter", ","))
-    elif action == "validate_formulas":
-        return validate_formulas_offline(args["filepath"])
-    elif action == "recalc_and_verify":
-        from scripts.recalc_xlsx import recalc_xlsx
-        return recalc_xlsx(args["filepath"], args.get("timeout", 60))
-    elif action == "apply_financial_colors":
-        return apply_financial_colors_offline(args["filepath"])
-    return {"error": f"Unknown offline_xlsx action: {action}"}
-
-
-def _handle_offline_pptx(action: str, args: dict):
-    from offline.pptx_builder import build_pptx, extract_pptx_text
-    if action == "build":
-        return build_pptx(args.get("structure", {}), args.get("output_path", "output.pptx"))
-    elif action == "extract_text":
-        return extract_pptx_text(args["filepath"])
-    elif action == "export_slides":
-        from scripts.thumbnail_pptx import generate_thumbnails
-        return generate_thumbnails(args["filepath"], args.get("output_prefix", "slide"), args.get("dpi", 150))
-    return {"error": f"Unknown offline_pptx action: {action}"}
-
-
-def _handle_template(action: str, args: dict, doc_index):
-    from intelligence.template_manager import (
-        extract, save, load, list_all, delete,
-        export_template, import_template, compare_with_template
-    )
-    if action == "extract":
-        result = extract(doc_index)
-    elif action == "save":
-        tmpl_data = extract(doc_index)
-        result = save(args["template_name"], tmpl_data)
-    elif action == "load":
-        result = load(args["template_name"])
-    elif action == "list":
-        result = list_all()
+    if action == "count":
+        return _table_bridge.table_count(di)
+    elif action == "info":
+        return _table_bridge.table_info(ti, di)
+    elif action == "read":
+        return _table_bridge.table_read(ti, di)
+    elif action == "create":
+        return _table_bridge.table_create(args["rows"], args["cols"], args.get("position"), di)
     elif action == "delete":
         return _table_bridge.table_delete(ti, di)
     elif action == "batch_read":
