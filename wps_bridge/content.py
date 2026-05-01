@@ -396,6 +396,9 @@ def _clear_document(doc):
 
 def create_cover(lines: List[Dict], clear_existing: bool = True, doc_index: Optional[int] = None) -> Dict:
     """Single-call cover page creation. Each line: {text, font_name, font_size, bold, alignment, space_before, space_after, ...}"""
+    if not lines:
+        return {"error": "create_cover requires 'lines' array. Example: [{'text':'Title','font_name':'黑体','font_size':26,'bold':true,'alignment':'center'}]",
+                "error_code": "MISSING_PARAM"}
     doc = get_doc(doc_index)
 
     if clear_existing:
@@ -696,32 +699,53 @@ def select_by_role(role: str, filepath: str = None,
 def insert_paragraph(text: str, style: Optional[str] = None,
                      position: str = "end", para_index: Optional[int] = None,
                      doc_index: Optional[int] = None) -> Dict:
-    """One-step paragraph insertion with optional style and positioning."""
+    """One-step paragraph insertion with automatic \n splitting."""
+    import re
     doc = get_doc(doc_index)
+    lines = [l.strip() for l in re.split(r'[\r\n]+', text) if l.strip()]
+    if not lines:
+        lines = [text]
+    count = len(lines)
+
     if position == "end":
-        rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
-        rng.InsertParagraphAfter()
-        new_para = doc.Paragraphs.Item(doc.Paragraphs.Count)
+        for line in lines:
+            rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+            rng.InsertParagraphAfter()
+            new_para = doc.Paragraphs.Item(doc.Paragraphs.Count)
+            new_para.Range.Text = line
+            if style:
+                try:
+                    new_para.Range.Style = doc.Styles.Item(style)
+                except Exception:
+                    pass
     elif position == "before" and para_index is not None:
-        rng = doc.Paragraphs.Item(para_index).Range
-        rng.InsertParagraph()
-        new_para = doc.Paragraphs.Item(para_index)
+        pi = max(para_index, 1)
+        for line in reversed(lines):
+            rng = doc.Paragraphs.Item(pi).Range
+            rng.InsertParagraph()
+            new_para = doc.Paragraphs.Item(pi)
+            new_para.Range.Text = line
+            if style:
+                try:
+                    new_para.Range.Style = doc.Styles.Item(style)
+                except Exception:
+                    pass
     elif position == "after" and para_index is not None:
-        rng = doc.Paragraphs.Item(para_index).Range
-        rng.InsertParagraphAfter()
-        new_index = min(para_index + 1, doc.Paragraphs.Count)
-        new_para = doc.Paragraphs.Item(new_index)
+        pi = max(para_index, 1)
+        for line in reversed(lines):
+            rng = doc.Paragraphs.Item(pi).Range
+            rng.InsertParagraphAfter()
+            new_index = min(pi + 1, doc.Paragraphs.Count)
+            new_para = doc.Paragraphs.Item(new_index)
+            new_para.Range.Text = line
+            if style:
+                try:
+                    new_para.Range.Style = doc.Styles.Item(style)
+                except Exception:
+                    pass
     else:
         return {"error": "Invalid position or missing para_index"}
-
-    new_para.Range.Text = text
-    if style:
-        try:
-            style_obj = doc.Styles.Item(style)
-            new_para.Range.Style = style_obj
-        except Exception:
-            pass
-    return {"inserted": True, "position": position, "text_preview": text[:80]}
+    return {"inserted": True, "paragraphs_created": count, "position": position, "text_preview": lines[0][:80]}
 
 
 # ─── Surgical Operations (paragraph-aware, no character position fragility) ───

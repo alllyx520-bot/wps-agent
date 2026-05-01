@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import sys
 import tempfile
 import time
@@ -149,7 +150,7 @@ async def list_tools():
              }, "required": ["action"]}),
 
         # ─── content ───
-        Tool(name="content", description="Read and write document text with Run-level precision. Actions: full_text/paragraph/paragraphs/selection/range/outline/shapes/runs_detail/document_structure/full_structure/semantic_structure/cross_references/insert_text/insert_paragraph/delete_paragraphs/delete_runs/replace_paragraph_text/replace_runs/insert_run/delete_run/split_run/delete_range/replace_range/batch/create_cover/snapshot/rollback/cache_status/query_by_role",
+        Tool(name="content", description="Read and write document text with Run-level precision. Actions: full_text/paragraph/paragraphs/selection/range/outline/shapes/runs_detail/document_structure/full_structure/semantic_structure/cross_references/insert_text/insert_paragraph/delete_paragraphs/delete_runs/replace_paragraph_text/replace_runs/insert_run/delete_run/split_run/delete_range/replace_range/batch/batch_write/create_cover/snapshot/rollback/cache_status/query_by_role",
              inputSchema={"type": "object", "properties": {
                  "action": {"type": "string"},
                  "para_index": {"type": "integer", "minimum": 1},
@@ -778,7 +779,7 @@ def _handle_content(action: str, args: dict, mode: str) -> dict:
             return {"rollback": True, "restored_paragraphs": len(doc.paragraphs), "saved_to": output}
 
     elif action in ("insert_text", "insert_run", "delete_run", "split_run",
-                     "delete_range", "replace_range", "create_cover"):
+                     "delete_range", "replace_range", "create_cover", "batch_write"):
         # Write operations — offline mode with save
         if not filepath:
             return _handle_content_com(action, args)
@@ -929,6 +930,13 @@ def _handle_content(action: str, args: dict, mode: str) -> dict:
         elif action == "create_cover":
             lines = args.get("lines", [])
             clear = args.get("clear_existing", True)
+            if not lines:
+                return {"error": "create_cover requires 'lines' parameter. Each line: {text, font_name?, font_size?, bold?, alignment?, space_before?, space_after?}",
+                        "error_code": "MISSING_PARAM", "example": {"lines": [
+                            {"text": "Title", "font_name": "黑体", "font_size": 26, "bold": True, "alignment": "center", "space_before": 120, "space_after": 24},
+                            {"text": "Subtitle", "font_name": "宋体", "font_size": 16, "alignment": "center", "space_after": 6},
+                            {"text": "2026-05-02", "font_name": "宋体", "font_size": 14, "alignment": "center", "space_after": 6}
+                        ]}}
             if clear:
                 doc.paragraphs.clear()
 
@@ -954,6 +962,32 @@ def _handle_content(action: str, args: dict, mode: str) -> dict:
             write_docx_model(doc, output, filepath)
             _cache_doc(output, doc)
             return {"created": True, "paragraphs": len(lines), "saved_to": output}
+
+        elif action == "batch_write":
+            items = args.get("items", [])
+            inserted = 0
+            for item in items:
+                text = item.get("text", "")
+                pos = item.get("position", "end")
+                pi = item.get("para_index")
+                lines = [l.strip() for l in re.split(r'[\r\n]+', text) if l.strip()]
+                if not lines:
+                    continue
+                new_paras = [Paragraph(runs=[Run(text=l)]) for l in lines]
+                if pos == "end":
+                    for p in new_paras:
+                        doc.paragraphs.append(p)
+                elif pos == "before" and pi:
+                    for p in reversed(new_paras):
+                        doc.insert_paragraph(pi, p)
+                elif pos == "after" and pi:
+                    for p in new_paras:
+                        doc.insert_paragraph(pi + 1, p)
+                inserted += len(new_paras)
+            output = args.get("output_path", filepath)
+            write_docx_model(doc, output, filepath)
+            _cache_doc(output, doc)
+            return {"inserted": True, "paragraphs_created": inserted, "items_processed": len(items), "saved_to": output}
 
     elif action == "query_by_role":
         if not filepath:
