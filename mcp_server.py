@@ -150,7 +150,7 @@ async def list_tools():
              }, "required": ["action"]}),
 
         # ─── content ───
-        Tool(name="content", description="Read and write document text with Run-level precision. Actions: full_text/paragraph/paragraphs/selection/range/outline/shapes/runs_detail/document_structure/full_structure/semantic_structure/cross_references/insert_text/insert_paragraph/delete_paragraphs/delete_runs/replace_paragraph_text/replace_runs/insert_run/delete_run/split_run/delete_range/replace_range/batch/batch_write/create_cover/snapshot/rollback/cache_status/query_by_role",
+        Tool(name="content", description="Read and write document text with Run-level precision. Actions: full_text/paragraph/paragraphs/selection/range/outline/shapes/runs_detail/document_structure/full_structure/semantic_structure/cross_references/insert_text/insert_paragraph/delete_paragraphs/delete_runs/replace_paragraph_text/replace_runs/insert_run/delete_run/split_run/delete_range/replace_range/batch/batch_write/create_cover/build/snapshot/rollback/cache_status/query_by_role",
              inputSchema={"type": "object", "properties": {
                  "action": {"type": "string"},
                  "para_index": {"type": "integer", "minimum": 1},
@@ -622,7 +622,7 @@ def _content_range(start_pos=0, end_pos=-1, doc_index=None):
 def _handle_content(action: str, args: dict, mode: str) -> dict:
     filepath = args.get("filepath")
 
-    if action in ("delete_paragraphs", "delete_runs", "replace_paragraph_text", "replace_runs"):
+    if action in ("delete_paragraphs", "delete_runs", "replace_paragraph_text", "replace_runs", "build"):
         return _handle_content_com(action, args)
 
     if action in ("full_text", "paragraph", "paragraphs", "outline", "batch",
@@ -1075,6 +1075,11 @@ def _handle_content_com(action: str, args: dict) -> dict:
     elif action == "create_cover":
         from wps_bridge.content import create_cover
         return create_cover(args.get("lines", []), args.get("clear_existing", True), args.get("doc_index"))
+    elif action == "build":
+        from wps_bridge.content import doc_build
+        structure = args.get("structure", {})
+        output_path = args.get("output_path", args.get("filepath", ""))
+        return doc_build(structure, output_path, args.get("doc_index"))
     elif action == "snapshot":
         from wps_bridge.content import snapshot
         return snapshot(args.get("doc_index"))

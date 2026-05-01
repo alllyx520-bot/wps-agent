@@ -925,3 +925,161 @@ def rollback(doc_index: Optional[int] = None) -> Dict:
         except Exception:
             continue
     return {"rolled_back": True, "restored_paragraphs": restored, "total_snapshot": len(snaps)}
+
+
+def doc_build(structure: Dict, output_path: str, doc_index: Optional[int] = None) -> Dict:
+    """High-level document builder. One call to build a complete document.
+
+    structure = {
+        "cover": {"lines": [{text, font_name?, font_size?, bold?, alignment?, space_before?, space_after?}]},
+        "sections": [
+            {"heading": "一、...", "paragraphs": ["body1", "body2"],
+             "table": {"headers": ["col1","col2"], "rows": [["a","b"],["c","d"]]}}
+        ],
+        "defaults": {body_font, body_size, heading_font, heading_size, first_line_indent},
+        "page_setup": {page_width, page_height, top_margin, bottom_margin, left_margin, right_margin}
+    }
+    Returns: {built, paragraphs_created, tables_created, sections_created, cover_lines, output_path, errors}
+    """
+    from . import formatting as _fmt
+    from . import table as _tbl
+
+    doc = get_doc(doc_index)
+    errors = []
+    para_count = 0
+    table_count = 0
+    defaults = structure.get("defaults", {
+        "body_font": "宋体", "body_size": 12,
+        "heading_font": "黑体", "heading_size": 16,
+    })
+
+    # 1. Clear + Cover
+    _clear_document(doc)
+    cover_lines_data = structure.get("cover", {}).get("lines", [])
+    if cover_lines_data:
+        create_cover(cover_lines_data, clear_existing=False, doc_index=doc_index)
+        para_count += len(cover_lines_data)
+
+        # Page break after cover
+        try:
+            last_cover_para = doc.Paragraphs.Count
+            from . import layout as _lay
+            _lay.insert_page_break(last_cover_para, doc_index)
+        except Exception as e:
+            errors.append(f"page_break after cover: {e}")
+
+    # 2. Page setup
+    ps = structure.get("page_setup", {})
+    if ps:
+        try:
+            from . import layout as _lay
+            _lay.page_setup(
+                doc_index, None,
+                page_width=ps.get("page_width"), page_height=ps.get("page_height"),
+                top_margin=ps.get("top_margin"), bottom_margin=ps.get("bottom_margin"),
+                left_margin=ps.get("left_margin"), right_margin=ps.get("right_margin"),
+                orientation=ps.get("orientation"), gutter=ps.get("gutter"),
+            )
+        except Exception as e:
+            errors.append(f"page_setup: {e}")
+
+    # 3. Build sections
+    sections_data = structure.get("sections", [])
+    heading_font = defaults.get("heading_font", "黑体")
+    heading_size = defaults.get("heading_size", 16)
+    body_font = defaults.get("body_font", "宋体")
+    body_size = defaults.get("body_size", 12)
+    first_line_indent = defaults.get("first_line_indent")
+
+    for sec_idx, section in enumerate(sections_data):
+        heading_text = section.get("heading", "").strip()
+        if not heading_text:
+            continue
+
+        # Insert heading
+        insert_paragraph(heading_text, position="end", doc_index=doc_index)
+        para_count += 1
+        heading_para_idx = doc.Paragraphs.Count
+
+        # Format heading
+        try:
+            _fmt.set_font(heading_para_idx, name=heading_font, size=heading_size, bold=True, doc_index=doc_index)
+            _fmt.set_paragraph_format(heading_para_idx, space_before=12, space_after=6, doc_index=doc_index)
+        except Exception as e:
+            errors.append(f"section {sec_idx} heading format: {e}")
+
+        # Insert body paragraphs
+        body_paragraphs = section.get("paragraphs", [])
+        for bp_text in body_paragraphs:
+            if not bp_text or not bp_text.strip():
+                continue
+            insert_paragraph(bp_text, position="end", doc_index=doc_index)
+            para_count += 1
+            body_para_idx = doc.Paragraphs.Count
+            try:
+                _fmt.set_font(body_para_idx, name=body_font, size=body_size, doc_index=doc_index)
+                indent_kwargs = {}
+                if first_line_indent:
+                    indent_kwargs["first_line_indent"] = first_line_indent
+                _fmt.set_paragraph_format(body_para_idx, line_spacing_rule="multiple", line_spacing=1.5, **indent_kwargs, doc_index=doc_index)
+            except Exception as e:
+                errors.append(f"section {sec_idx} body format para {body_para_idx}: {e}")
+
+        # Insert table if present
+        table_data = section.get("table")
+        if table_data:
+            headers = table_data.get("headers", [])
+            rows = table_data.get("rows", [])
+            num_cols = len(headers) if headers else (len(rows[0]) if rows else 3)
+            num_rows = len(rows) + (1 if headers else 0)
+            if num_rows > 0:
+                try:
+                    tbl_result = _tbl.table_create(num_rows, num_cols, position="end", doc_index=doc_index)
+                    if "error" not in tbl_result:
+                        table_count += 1
+                        tbl_idx = tbl_result["table_index"]
+                        header_bold = table_data.get("header_bold", True)
+                        # Fill headers
+                        for c_idx, h_text in enumerate(headers, 1):
+                            if h_text:
+                                _tbl.set_cell_text(tbl_idx, 1, c_idx, h_text, doc_index=doc_index)
+                                if header_bold:
+                                    _tbl.format_cell(tbl_idx, 1, c_idx, bold=True, font_name=body_font, font_size=body_size, doc_index=doc_index)
+                        # Fill rows
+                        for r_idx, row_data in enumerate(rows, 2 if headers else 1):
+                            for c_idx, cell_text in enumerate(row_data, 1):
+                                if c_idx <= num_cols:
+                                    _tbl.set_cell_text(tbl_idx, r_idx, c_idx, str(cell_text), doc_index=doc_index)
+                                    _tbl.format_cell(tbl_idx, r_idx, c_idx, font_name=body_font, font_size=body_size, doc_index=doc_index)
+                        # Set header shading
+                        header_shading = table_data.get("header_shading")
+                        if header_shading and headers:
+                            for c_idx in range(1, num_cols + 1):
+                                try:
+                                    _tbl.set_cell_shading(tbl_idx, 1, c_idx, header_shading, doc_index=doc_index)
+                                except Exception:
+                                    pass
+                    else:
+                        errors.append(f"table create: {tbl_result.get('error')}")
+                except Exception as e:
+                    errors.append(f"section {sec_idx} table: {e}")
+
+    # 4. Save
+    if output_path:
+        try:
+            doc.SaveAs(output_path)
+        except Exception as e:
+            try:
+                doc.SaveAs2(output_path)
+            except Exception as e2:
+                errors.append(f"save: {e2}")
+
+    return {
+        "built": True,
+        "paragraphs_created": para_count,
+        "tables_created": table_count,
+        "sections_created": len(sections_data),
+        "cover_lines": len(cover_lines_data),
+        "output_path": output_path,
+        "errors": errors,
+    }

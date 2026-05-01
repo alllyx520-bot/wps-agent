@@ -28,13 +28,16 @@ def table_read(table_index, doc_index=None):
     return {"rows": rows, "columns": cols, "data": data}
 
 def table_create(rows, cols, position=None, doc_index=None):
+    if not rows or rows <= 0:
+        return {"error": "table create requires 'rows' parameter (positive integer)", "error_code": "MISSING_PARAM"}
+    if not cols or cols <= 0:
+        return {"error": "table create requires 'cols' parameter (positive integer)", "error_code": "MISSING_PARAM"}
     doc = get_doc(doc_index)
     rng = doc.Range(doc.Content.End - 1, doc.Content.End - 1) if position == "end" else get_app().Selection.Range
     tbl = doc.Tables.Add(rng, rows, cols)
     tbl.AutoFitBehavior(2)
-    # Auto-fit table to A4 text area (page width 595.3 - typical margins ~144 = 451)
     try:
-        tbl.PreferredWidthType = 2  # wdPreferredWidthPoints
+        tbl.PreferredWidthType = 2
         tbl.PreferredWidth = 451
     except Exception:
         pass
@@ -45,10 +48,14 @@ def table_delete(table_index, doc_index=None):
     return {"deleted": table_index}
 
 def set_cell_text(table_index, row, col, text, doc_index=None):
+    if text is None or (isinstance(text, str) and not text and text != ""):
+        return {"error": "set_cell_text requires 'text' parameter", "error_code": "MISSING_PARAM", "table": table_index, "row": row, "col": col}
     get_doc(doc_index).Tables.Item(table_index).Cell(row, col).Range.Text = text
     return {"table": table_index, "row": row, "col": col, "text": text}
 
 def format_cell(table_index, row, col, font_name=None, font_size=None, bold=None, align=None, shading_color=None, doc_index=None):
+    if not any([font_name, font_size, bold is not None, align, shading_color is not None]):
+        return {"error": "format_cell requires at least one formatting parameter (font_name/font_size/bold/align/shading_color)", "error_code": "MISSING_PARAM", "table": table_index, "row": row, "col": col}
     cell = get_doc(doc_index).Tables.Item(table_index).Cell(row, col)
     r = cell.Range
     if font_name: com_set(r.Font, "Name", font_name)
@@ -115,6 +122,8 @@ def alternate_rows(table_index, color1="FFFFFF", color2="F2F2F2", doc_index=None
 
 def set_cell_shading(table_index, row, col, bg_color, doc_index=None):
     """Set cell background color. bg_color: 6-char hex string like 'D9E8F7' or integer RGB."""
+    if col is None or col <= 0:
+        return {"error": "set_cell_shading requires 'col' parameter (column index, 1-based)", "error_code": "MISSING_PARAM", "table": table_index, "row": row}
     cell = get_doc(doc_index).Tables.Item(table_index).Cell(row, col)
     try:
         if isinstance(bg_color, str):

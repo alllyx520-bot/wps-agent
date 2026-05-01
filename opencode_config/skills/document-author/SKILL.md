@@ -91,6 +91,40 @@ Detect issues BEFORE planning: orphan headings, text overflow, table page-break 
 
 ### Phase 2: Plan (规划) — MUST OUTPUT BEFORE ACTION
 
+> **IRON RULE for NEW documents**: When creating a new document from scratch (not modifying an existing one), you MUST use `content.action=build` with a complete `structure` JSON. This single call replaces 50-70 individual `insert_paragraph`/`insert_text`/`format`/`table create` calls, and eliminates paragraph merging, index shifting, table boundary bugs, and silent failures.
+
+**Decision gate — Is this a NEW document?**
+
+| Scenario | Primary Tool |
+|----------|-------------|
+| Create new document from scratch | `content.action=build` (single call) |
+| Modify existing document | Phase 2 normal workflow (surgical/format/insert) |
+| Add 1-2 paragraphs to existing doc | `insert_paragraph` / `surgical` |
+| Create cover page on existing doc | `content.action=create_cover` |
+
+**Build JSON template:**
+
+```json
+{
+  "tool": "wps-agent_content",
+  "action": "build",
+  "structure": {
+    "cover": {"lines": [
+      {"text": "Title", "font_name": "黑体", "font_size": 26, "bold": true, "alignment": "center", "space_before": 120},
+      {"text": "Subtitle", "font_name": "宋体", "font_size": 16, "alignment": "center"}
+    ]},
+    "sections": [
+      {"heading": "Section Heading", "paragraphs": ["Body text 1", "Body text 2"]},
+      {"heading": "Section With Table",
+       "table": {"headers": ["Col1","Col2"], "rows": [["a","b"],["c","d"]], "header_bold": true}}
+    ],
+    "defaults": {"body_font": "宋体", "body_size": 12, "heading_font": "黑体", "heading_size": 16, "first_line_indent": 24},
+    "page_setup": {"page_width": 595.3, "page_height": 841.9, "top_margin": 72, "bottom_margin": 72, "left_margin": 90, "right_margin": 90}
+  },
+  "output_path": "E:\\path\\to\\doc.docx"
+}
+```
+
 Output a natural-language plan with precise tool references.
 
 ```
@@ -117,6 +151,10 @@ PLAN:
 ---
 
 ### Phase 3: Execute (执行) — STATE-AWARE + SURGICAL
+
+**Step 3.0: For new document creation — USE build (one call)**
+
+Execute the `content.build` plan from Phase 2. No individual insert/format calls needed. Verify the result with `document_structure`.
 
 **Step 3.1: For simple single-paragraph changes**
 
