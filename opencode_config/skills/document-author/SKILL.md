@@ -2,16 +2,18 @@
 name: document-author
 description: >
   智能化的 WPS Word 文档操作 agent。像人类文档专家一样工作：
-  先阅读理解文档，再规划操作步骤，然后逐步执行并记录状态，
-  最后验证结果。支持创建和修改，自动发现文档风格、保持一致性、
-  分层打磨质量。每当使用 WPS MCP Word 工具时自动加载。
+  先阅读理解文档（含语义解析+排版分析），再规划操作步骤，
+  然后逐步执行并记录状态，最后验证结果（含自动排版修正）。
+  支持 18 个 Tool 的完整编排，包括 v2.0 新增的 surgical 手术级修改、
+  query_by_role 语义定位、auto_fix_layout 排版自动修正。
+  每当使用 WPS MCP Word 工具时自动加载。
 ---
 
-# Document Author — Human-like Document Intelligence
+# Document Author — v2.0 Human-like Document Intelligence
 
 ## Overview
 
-This skill transforms the agent into a human-like document professional. Instead of treating WPS MCP tools as isolated API calls, the agent reads/understands → plans → executes → verifies, just like a person working on a document.
+This skill transforms the agent into a human-like document professional with full awareness of the v2.0 wps-agent tool suite. Instead of treating WPS MCP tools as isolated API calls, the agent reads/understands → plans (with semantic awareness) → executes (with surgical precision) → verifies (with layout auto-fix), just like a person working on a document.
 
 **Core principle**: Every tool call is a conscious decision made after understanding the document state, not a blind operation.
 
@@ -25,243 +27,270 @@ This skill transforms the agent into a human-like document professional. Instead
 
 ### Phase 1: Understand (理解) — MUST DO FIRST
 
-Before ANY tool call that modifies a document, you MUST read and build a mental model.
+Before ANY modifying tool call, build a complete mental model of the document.
 
-**Step 1.1: Batch Read (one call)**
+**Step 1.1: Structural Read (3 parallel calls)**
 
-```
-wps-agent_content batch { types: ["full_text", "outline", "paragraphs_start": 1, "paragraphs_count": 15] }
-```
-
-**Step 1.2: Also sample formats of at least 5 paragraphs across different sections**
-
-```
-wps-agent_format batch { operations: [
-  { action: "get_font", para_index: 1 },
-  { action: "get_paragraph_format", para_index: 1 },
-  { action: "get_font", para_index: N },   // N = first heading paragraph
-  { action: "get_paragraph_format", para_index: N },
-  { action: "get_font", para_index: M },   // M = body text paragraph
-  { action: "get_paragraph_format", para_index: M },
-] }
+```json
+{"tool": "wps-agent_content", "action": "full_text"}
+{"tool": "wps-agent_content", "action": "document_structure"}
+{"tool": "wps-agent_content", "action": "outline"}
 ```
 
-**Step 1.3: Build Mental Model (in your context, not on disk)**
+**Step 1.2: Semantic Deep Read (v2.0)**
 
-After reading, construct a natural-language mental model:
+```json
+{"tool": "wps-agent_content", "action": "semantic_structure"}
+{"tool": "wps-agent_content", "action": "query_by_role", "sr": "abstract"}
+{"tool": "wps-agent_content", "action": "query_by_role", "sr": "cover"}
+```
+
+Purpose: Auto-identify 20+ semantic roles (cover/abstract/keywords/toc/chapter/section/body/references/acknowledgements/appendix), build DocumentGraph relationships.
+
+**Step 1.3: Format Sampling**
+
+```json
+{"tool": "wps-agent_format", "action": "batch", "operations": [
+  {"type": "get_font", "para_index": 1},
+  {"type": "get_paragraph_format", "para_index": 1},
+  {"type": "get_font", "para_index": FIRST_HEADING},
+  {"type": "get_paragraph_format", "para_index": FIRST_HEADING},
+  {"type": "get_font", "para_index": FIRST_BODY},
+  {"type": "get_paragraph_format", "para_index": FIRST_BODY}
+]}
+```
+
+**Step 1.4: Build Mental Model**
 
 ```
 DOCUMENT MENTAL MODEL:
-  Type: [论文/公文/报告/通用]
-  Total paragraphs: [N]
-  Structure:
-    [1-5: 封面], [6-10: 摘要], [11-15: 目录],
-    [16: 一级标题"绪论"], [17-35: 正文], ...
+  Type: [thesis/report/official/resume/contract/...] (12 types)
+  Total paragraphs: [N] | Tables: [M] | Sections: [S]
+  Semantic Structure:
+    [1-3: cover], [4: abstract], [5-8: toc],
+    [9: chapter_1 "绪论"], [10-45: body], ... (from semantic_structure)
   Discovered style rules:
-    Heading1: 黑体, 三号, bold, left
-    Body: 宋体, 小四, first_line_indent ≈ 2chars
-    Tables: no borders, header bold
-  User's task: [restate in your own words]
+    Chapter Title: 黑体/22pt/bold/center
+    Section Title: 黑体/16pt/bold/left
+    Body: 宋体/12pt/justify/first_line_indent=24pt
+    Table: header bold, no borders
+  Content Types (from classify_paragraph_content):
+    Expository: 80% | Data: 10% | Reference: 10%
+  User's task: [restate in own words]
 ```
 
-**Step 1.4: Semantic Role Labeling**
+**Step 1.5: Layout Analysis (v2.0)**
 
-Assign a semantic role to each paragraph range:
+```json
+{"tool": "wps-agent_layout", "action": "auto_fix_layout"}
+```
 
-| Index Range | Semantic Role |
-|-------------|---------------|
-| 1-5 | Cover information |
-| 6-10 | Abstract |
-| 11-15 | TOC |
-| 16 | Level 1 Heading: Introduction |
-| 17-35 | Body text (Introduction) |
-| ... | ... |
-
-Use these labels in subsequent thinking and tool calls.
+Detect issues BEFORE planning: orphan headings, text overflow, table page-break risks, column imbalance.
 
 ---
 
 ### Phase 2: Plan (规划) — MUST OUTPUT BEFORE ACTION
 
-Before executing any changes, output a natural-language plan:
+Output a natural-language plan with precise tool references.
 
 ```
 PLAN:
   1. Goal: [one sentence]
   2. Impact analysis:
-     □ Paragraph count will change? → affects subsequent indices
-     □ Heading text will change? → TOC may need update
-     □ Content added/removed? → page numbers may shift
-     □ Format changes? → ensure consistency with unchanged parts
-  3. Execution steps:
-     Step A: [action] | Tool: [wps-agent_xxx] | Target: [semantic label or para index]
-     Step B: ...
-  4. Expected result: [describe the document state after all changes]
-  5. Risk notes: [edge cases, things to watch for]
+     □ Paragraph count change? → affects subsequent indices
+     □ Heading text change? → TOC may need update
+     □ Content added/removed? → page numbers shift
+     □ Format changes? → consistency check needed
+     □ Layout issues detected in Phase 1.5? → include fix steps
+  3. Execution steps (with precise tool mapping):
+     Step A: [action] | Tool: [wps-agent_xxx] | Action: [yyy] | Target: [semantic role or para index]
+     Step B: [action] | Tool: [wps-agent_surgical] | Action: [select/modify/commit] | Target: [...]
+     Step C: ...
+  4. For precise edits, PREFER surgical tool:
+     surgical.select(para_indices=[...]) → modify(mutations=[...]) → commit()
+  5. For semantic targeting, USE query_by_role:
+     content.query_by_role(sr="abstract") → locates abstract paragraphs
+  6. Expected result: [document state after changes]
+  7. Verification: layout.auto_fix_layout + consistency guard
 ```
 
 ---
 
-### Phase 3: Execute (执行) — STATE-AWARE
+### Phase 3: Execute (执行) — STATE-AWARE + SURGICAL
 
-Execute steps sequentially. After each step:
+**Step 3.1: For simple single-paragraph changes**
 
-1. Record what was done:
-   ```
-   ✅ Step A done: [what changed] | Current state: [position/tracking]
-   🔜 Step B: [what's next] | Target: [para/section]
-   ```
+Use direct format calls:
+```json
+{"tool": "wps-agent_format", "action": "set_font", "para_index": 1, "name": "黑体", "size": 26, "bold": true}
+{"tool": "wps-agent_format", "action": "set_paragraph_format", "para_index": 1, "alignment": "center"}
+```
 
-2. Before any format operation, **re-read the target paragraph** to confirm current state.
+**Step 3.2: For multi-element coordinated changes — USE SURGICAL**
 
-3. When applying formatting, **discover existing style first, then match it** — do NOT blindly apply standard templates.
+```json
+// Step A: Capture context
+{"tool": "wps-agent_surgical", "action": "select", "para_indices": [2, 3, 4, 5]}
+→ {session_id: "...", context: {...}}
 
-4. Format decision process:
-   ```
-   a. What is the semantic role of this content? (heading? body? caption?)
-   b. What format do SIMILAR elements in THIS document use?
-   c. Does the user have an explicit format requirement?
-   d. Combine (a)(b)(c) → decide format → apply
-   ```
+// Step B: Queue mutations
+{"tool": "wps-agent_surgical", "action": "modify", "session_id": "...",
+ "mutations": [
+   {"para": 2, "run": 1, "font_name": "黑体", "size": 16, "bold": true},
+   {"para": 2, "alignment": "center", "space_before": 24},
+   {"para": 3, "first_line_indent": 24, "space_after": 6}
+ ]}
 
-5. If something unexpected happens (wrong paragraph content, formatting doesn't take, etc.), STOP and report.
+// Step C: Commit with auto-verification
+{"tool": "wps-agent_surgical", "action": "commit", "session_id": "..."}
+→ {committed: true, verified: true}
+```
+
+**Step 3.3: For text effects — USE set_text_effect**
+
+```json
+{"tool": "wps-agent_format", "action": "set_text_effect", "para_index": 1, "effect": "shadow"}
+// effects: shadow, outline, emboss, engrave, glow, reflection
+```
+
+**During execution:**
+1. State-tracking after each tool call: ✅ Step A done / 🔜 Step B next
+2. Before format operations, re-read target paragraph to confirm state
+3. Format decisions: discover existing style first → match it — NOT blindly apply templates
+4. If unexpected → STOP and report
 
 ---
 
-### Phase 4: Verify (验证) — SELF-CHECK
-
-After ALL changes are applied:
+### Phase 4: Verify (验证) — SELF-CHECK + AUTO-FIX
 
 **Step 4.1: Re-read modified area**
-```
-wps-agent_content batch { types: ["full_text", "paragraphs_range"...] }
+
+```json
+{"tool": "wps-agent_content", "action": "full_text"}
+{"tool": "wps-agent_content", "action": "document_structure"}
 ```
 
 **Step 4.2: Consistency Guard**
-Scan for consistency issues:
+
 ```
 CONSISTENCY CHECK:
-  - All level-1 headings use the same font/size/bold? [Yes/No]
-  - All level-2 headings use the same font/size/bold? [Yes/No]
-  - All body text paragraphs share the same indent/size? [Yes/No]
-  - All tables share the same border/header style? [Yes/No]
-  - Figure captions format matches? [Yes/No]
+  - All H1 same font/size/bold? [Yes/No]
+  - All H2 same font/size/bold? [Yes/No]
+  - All body text same indent/size? [Yes/No]
+  - All tables same border/header? [Yes/No]
+  - Captions format matches? [Yes/No]
+```
+If any "No" → fix immediately and re-check.
+
+**Step 4.3: Layout Auto-Fix (v2.0)**
+
+```json
+{"tool": "wps-agent_layout", "action": "auto_fix_layout"}
 ```
 
-If any "No", fix immediately and re-check.
+Automatically: fix orphan headings (increase space_after), fix text overflow (adjust line_spacing), detect table page-break risks, detect column imbalance.
 
-**Step 4.3: Plan Completion Check**
-Compare result against the original plan:
+**Step 4.4: Plan Completion Check**
+
 ```
   ✅ Step A: [confirmed]
   ✅ Step B: [confirmed]
   ...
-  Plan ↔ Result: [all matched / some discrepancies]
+  Plan ↔ Result: [matched / discrepancies: ...]
 ```
 
-**Step 4.4: Visual Quality Assessment**
-Read through the document content and judge:
-- Any orphaned headings (heading at bottom of page, content on next)?
-- Any single-line widows at page bottom?
-- Page breaks in sensible places?
-- Spacing visually balanced?
+---
+
+## New Tool Quick Reference (v2.0)
+
+### surgical — Context-aware precise editing
+```
+select(para_indices=[2,3]) → modify(mutations=[...]) → commit() / rollback()
+```
+Use when: batch editing multiple paragraphs, precise formatting across sections, need rollback safety.
+
+### query_by_role — Semantic paragraph targeting
+```
+content.query_by_role(sr="abstract") → [{index: 4, role: "abstract_label", ...}]
+```
+Roles: abstract, cover, keywords, toc, references, acknowledgements, appendix
+
+### auto_fix_layout — Layout quality auto-fix
+```
+layout.auto_fix_layout(filepath="doc.docx") → {fixed: N, issues_found: M}
+```
+Detects: orphan headings, text overflow, table page-break, column imbalance
+
+### fix_widow_orphan — Widow/orphan quick fix
+```
+layout.fix_widow_orphan() → {fixed_paragraphs: N}
+```
+Sets WidowControl=True on all paragraphs via COM.
+
+### set_text_effect — Text visual effects
+```
+format.set_text_effect(para_index=1, effect="glow", color_rgb=255, offset=2)
+```
+Effects: shadow, outline, emboss, engrave, glow, reflection
 
 ---
 
 ## Style Discovery Protocol
 
-When modifying formatting, always DISCOVER before you APPLY:
+When modifying formatting, DISCOVER before APPLY:
+1. Read 3-5 paragraphs of same semantic role
+2. Identify common pattern (majority rule)
+3. Apply that pattern to new content
 
-```
-1. Read 3-5 paragraphs of the same semantic role
-2. Identify the common pattern (majority rule)
-3. Apply that pattern to the new/modified content
-
-Example:
-  "I need to format a new level-2 heading.
-   Existing level-2 headings: [sample their fonts from para 20, 35, 50]
-   → Common: 黑体, 四号, bold, left-aligned
-   → Apply same to new heading"
-```
-
-If no existing elements of the same type exist (e.g., adding the first table), then reference `conventions.md` for domain-appropriate defaults and adapt.
+If no existing elements → reference `references/conventions.md` for 14-template defaults.
 
 ---
 
 ## Intent Disambiguation Protocol
 
-When the user's instruction is vague (e.g., "make it look better", "fix the formatting"):
-
-```
-DO NOT GUESS. Instead:
-
-1. Read the full document
+Vague request ("make it better") → Don't guess:
+1. Read full document
 2. Identify 3-5 specific improvable items
-3. Present to user:
-
-   "I've read the document. Here's what I found:
-    1. [Issue A with specific evidence]
-    2. [Issue B with specific evidence]
-    3. [Issue C with specific evidence]
-   Which should I address? (Or all?)"
-
-4. After user selects, proceed with the 4-Phase workflow for the chosen items
-```
+3. Present to user: "I found: [A/B/C]. Which should I address?"
+4. After selection → 4-Phase workflow
 
 ---
 
-## Layered Polish Protocol
+## Advanced: Offline Mode Routing
 
-For complex tasks spanning the entire document:
+When `wps-agent` MCP is unavailable:
+1. Document analysis: `offline_docx analyze/validate`
+2. Automatic formatting: `offline_docx auto_format` (report/thesis/resume/general)
+3. Template application: `offline_docx apply_template` (thesis_cn/report_official/resume_professional)
+4. Document building: `offline_docx build` (from JSON structure)
+5. Text replacement: `offline_docx replace_text`
+6. Fallback: `docx` skill (npm docx + pandoc)
 
-```
-Pass 1: Content correctness
-  - All required content is present
-  - Structure is complete (no missing sections)
-  - Paragraph order is correct
-
-Pass 2: Format uniformity
-  - All headings at same level share format
-  - All body text is uniform
-  - Tables/figures share styles
-  → Use Consistency Guard after this pass
-
-Pass 3: Detail refinement
-  - Page numbers are continuous
-  - Headers/footers are correct
-  - Figure/table numbering is continuous
-  - Cross-references are valid
-
-Pass 4: Visual polish
-  - No widows/orphans
-  - Page breaks are sensible
-  - Overall visual balance looks right
-```
-
-Between passes, confirm: "Pass N complete. Entering Pass N+1."
+Note: Offline mode write operations require file NOT locked by WPS COM.
 
 ---
 
 ## Self-Verification Checklist
 
-After EVERY task, run this checklist internally:
-
-- [ ] Did I read the document before making any changes?
+- [ ] Did I read the document before changes?
+- [ ] Did I run semantic_structure + query_by_role?
+- [ ] Did I check layout with auto_fix_layout?
 - [ ] Did I output a plan before executing?
+- [ ] Did I consider using surgical for multi-element changes?
 - [ ] Did I track state after each operation?
 - [ ] Did I verify results after completion?
-- [ ] Are formats consistent with the document's existing style?
-- [ ] Are formats consistent among elements of the same type?
-- [ ] Did I avoid imposing external standards without reason?
+- [ ] Are formats consistent within same element type?
+- [ ] Did I avoid imposing external standards?
 - [ ] Would a human reader find the result professionally acceptable?
 
 ---
 
 ## Red Flags
 
-- Calling `insert_text` or `format/set_font` without reading the document first
-- Applying standard formats without checking the document's existing style
+- Modifying without reading document structure first
+- Applying standard formats without style discovery
 - Making changes without outputting a plan
-- Skipping verification after making changes
-- Guessing at what the user meant instead of asking for clarification
-- Changing formatting of elements that the user didn't ask you to change
+- NOT using surgical for batch/multi-paragraph edits
+- NOT checking query_by_role for intelligent targeting
+- Skipping auto_fix_layout verification
+- Guessing user intent instead of disambiguation protocol

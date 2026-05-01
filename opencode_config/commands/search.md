@@ -18,5 +18,5 @@ Web search via Brave API using Python requests. **Fallback when TUN is OFF**.
 ## Implementation
 
 ```bash
-python "C:\Users\Lenovo\.config\opencode\scripts\web_tools.py" search <query> [--count <n>]
+python "%USERPROFILE%\.config\opencode\scripts\web_tools.py" search <query> [--count <n>]
 ```
