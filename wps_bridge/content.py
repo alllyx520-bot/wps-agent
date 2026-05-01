@@ -702,7 +702,7 @@ def insert_paragraph(text: str, style: Optional[str] = None,
     """One-step paragraph insertion with automatic \n splitting."""
     import re
     doc = get_doc(doc_index)
-    lines = [l.strip() for l in re.split(r'[\r\n]+', text) if l.strip()]
+    lines = [l.strip() for l in re.split(r'[\r\n]+|\\n', text) if l.strip()]
     if not lines:
         lines = [text]
     count = len(lines)

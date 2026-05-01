@@ -791,7 +791,7 @@ def _handle_content(action: str, args: dict, mode: str) -> dict:
         if action == "insert_text":
             text = args["text"]
             position = args.get("position", "end")
-            lines = text.split("\n")
+            lines = [l.strip() for l in re.split(r'[\r\n]+|\\n', text) if l.strip()]
             new_paras = [Paragraph(runs=[Run(text=line)]) for line in lines if line.strip()]
 
             if position == "end":
@@ -970,7 +970,7 @@ def _handle_content(action: str, args: dict, mode: str) -> dict:
                 text = item.get("text", "")
                 pos = item.get("position", "end")
                 pi = item.get("para_index")
-                lines = [l.strip() for l in re.split(r'[\r\n]+', text) if l.strip()]
+                lines = [l.strip() for l in re.split(r'[\r\n]+|\\n', text) if l.strip()]
                 if not lines:
                     continue
                 new_paras = [Paragraph(runs=[Run(text=l)]) for l in lines]
